@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env*
+!.env.example
+.next/
+.vinext/
+.wrangler/
+.sites-runtime/
+next-env.d.ts
+*.tsbuildinfo
+!/build/
+!/build/sites-vite-plugin.ts
+!/build/sites-vite-plugin.LICENSE
+!/build/sites-worker.ts
