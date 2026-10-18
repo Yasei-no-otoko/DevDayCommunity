@@ -8,7 +8,7 @@ export type RoomId =
   | "generator"
   | "exit";
 export type SabotageType = "blackout" | "lock" | "whisper" | "apparition";
-export type ActionType = "move" | "search" | "restore" | "unlock" | "wait";
+export type ActionType = "move" | "search" | "restore" | "unlock" | "wait" | "hide";
 export interface Room {
   id: RoomId;
   name: string;
@@ -158,6 +158,13 @@ export interface TiboState {
   lastAppearanceAt: number | null;
   nextAppearanceAt: number;
 }
+/** A short concealment breaks pursuit, but the same hiding place needs time to reuse. */
+export const HIDEOUT = { duration: 14, cooldown: 42, lostDuration: 10 } as const;
+export interface HideoutState {
+  availableAt: number;
+  completed: number;
+  lostUntil: number;
+}
 export interface GameState {
   status: "waiting" | "running" | "escaped" | "contained";
   paused: boolean;
@@ -186,6 +193,7 @@ export interface GameState {
   outcome: string;
   killer: KillerState;
   tibo: TiboState;
+  hideout: HideoutState;
   randomSeed: number;
 }
 function random(state: { randomSeed: number }): number {
@@ -233,6 +241,7 @@ export function createState(seed = 0x53414d): GameState {
       moveDuration: 0,
     },
     tibo: { appearances: 0, lastAppearanceAt: null, nextAppearanceAt: 0 },
+    hideout: { availableAt: 0, completed: 0, lostUntil: 0 },
     randomSeed: (seed >>> 0) || 0x9e3779b9,
   };
   state.tibo.nextAppearanceAt = 18 + random(state) * 12;
@@ -320,7 +329,24 @@ function nextRoom(state: GameState, goal: RoomId): RoomId {
     step = previous.get(step)!;
   return step;
 }
+export function isHiding(state: GameState): boolean {
+  return state.currentAction?.action === "hide";
+}
+/** Public legality contract shared by the local policy and API option builder. */
+export function canHide(state: GameState): boolean {
+  return state.status === "running" && !state.paused && !state.currentAction &&
+    state.roomId === "ward" && state.killer.encountered &&
+    !locked(state, "ward") && state.elapsed >= state.hideout.availableAt - 1e-8;
+}
 export function chooseLocalAction(state: GameState): Decision {
+  // One planned refuge visit is enough; later decisions keep advancing the escape.
+  // Before first contact no unseen killer location influences this choice.
+  const seeksHideout = state.killer.encountered && state.hideout.completed === 0 &&
+    state.elapsed >= state.hideout.availableAt - 1e-8;
+  if (canHide(state) && seeksHideout) return {
+    action: "hide", target: "ward",
+    reason: "隔離病棟のベッドの陰で息を潜め、追跡をやり過ごして脱出準備へ戻ろう。",
+  };
   const canRetreat = state.killer.encountered && state.killer.roomId === state.roomId &&
     !locked(state, state.roomId) &&
     ROOMS.some((room) => adjacent(state.roomId, room.id) && !locked(state, room.id));
@@ -336,6 +362,13 @@ export function chooseLocalAction(state: GameState): Decision {
       target: state.roomId,
       reason: "扉を封鎖された。ここのロックを解除しよう。",
     };
+  if (seeksHideout && !locked(state, state.roomId)) {
+    const next = nextRoom(state, "ward");
+    return {
+      action: locked(state, next) ? "unlock" : "move", target: next,
+      reason: "ぬこぬこさんに追われている。隔離病棟のベッドの陰に隠れて撒こう。",
+    };
+  }
   if (canRetreat) {
     const goal = !state.keycard ? "archive" : !state.power ? "generator" : "exit";
     const retreat = ROOMS.filter((room) => adjacent(state.roomId, room.id) && !locked(state, room.id))
@@ -403,7 +436,7 @@ export function applyDecision(
     return false;
   const candidate = value as Partial<Decision>;
   if (
-    !["move", "search", "restore", "unlock", "wait"].includes(
+    !["move", "search", "restore", "unlock", "wait", "hide"].includes(
       candidate.action ?? "",
     ) ||
     !ROOMS.some((r) => r.id === candidate.target) ||
@@ -461,6 +494,17 @@ export function applyDecision(
       )
         duration = 6;
       else return false;
+      break;
+    case "hide":
+      if (decision.target !== "ward" || !canHide(state)) return false;
+      duration = HIDEOUT.duration;
+      state.hideout.availableAt = state.elapsed + HIDEOUT.cooldown;
+      state.hideout.lostUntil = state.elapsed + HIDEOUT.duration + HIDEOUT.lostDuration;
+      // Drop the old trail immediately; the pursuer searches toward the laboratory.
+      state.killer.targetRoomId = null;
+      state.killer.moveElapsed = 0;
+      state.killer.moveDuration = 0;
+      state.killer.progress = 0;
       break;
     case "wait":
       if (decision.target !== state.roomId) return false;
@@ -520,6 +564,13 @@ function finishAction(state: GameState): void {
       state.status = "escaped";
       state.outcome = "被験者が脱出した。封じ込め失敗。";
     }
+  } else if (action.action === "hide") {
+    state.hideout.completed += 1;
+    state.fear = Math.max(0, state.fear - 12);
+    log(state, {
+      ...action,
+      reason: "追跡者が実験室の方へ離れた。隠れ場所を出て、脱出の準備を続けよう。",
+    }, "system");
   } else if (action.action === "wait")
     state.fear = Math.max(0, state.fear - 21);
   state.currentAction = null;
@@ -569,6 +620,18 @@ export function sabotage(
       state.progress = 0;
     }
   }
+  const interruptedHide = type === "apparition" && targetRoom === "ward" && isHiding(state);
+  if (interruptedHide) {
+    // A visible apparition forces Sam out; the spent hiding cooldown stays spent.
+    state.currentAction = null;
+    state.targetRoomId = null;
+    state.progress = 0;
+    state.hideout.lostUntil = state.elapsed;
+    state.killer.targetRoomId = null;
+    state.killer.moveElapsed = 0;
+    state.killer.moveDuration = 0;
+    state.killer.progress = 0;
+  }
   if (affectsSubject)
     state.fear = Math.min(99, state.fear + rule.fear);
   state.interventionHistory.unshift({
@@ -586,7 +649,7 @@ export function sabotage(
     {
       action: "wait",
       target: targetRoom,
-      reason: `${{ blackout: "停電", lock: "扉の封鎖", whisper: "囁き", apparition: "幻影" }[type]}が発生：${ROOMS.find((r) => r.id === targetRoom)!.name}。`,
+      reason: `${{ blackout: "停電", lock: "扉の封鎖", whisper: "囁き", apparition: "幻影" }[type]}が発生：${ROOMS.find((r) => r.id === targetRoom)!.name}。${interruptedHide ? "サムが隠れ場所から飛び出し、追跡が再開した。" : ""}`,
     },
     "system",
   );
@@ -594,7 +657,7 @@ export function sabotage(
 }
 function encounter(state: GameState): void {
   const killer = state.killer;
-  if (killer.roomId !== state.roomId ||
+  if (isHiding(state) || killer.roomId !== state.roomId ||
       (killer.lastEncounterAt !== null && state.elapsed < killer.lastEncounterAt + 12 - 1e-8)) return;
   const firstContact = !killer.encountered;
   killer.encountered = true;
@@ -618,8 +681,9 @@ function worldEvents(state: GameState): void {
 }
 function beginPursuit(state: GameState): void {
   const killer = state.killer;
-  if (killer.targetRoomId || killer.roomId === state.roomId) return;
-  killer.targetRoomId = route(killer.roomId, state.roomId)[1] ?? null;
+  const goal = state.hideout.lostUntil > state.elapsed + 1e-8 ? "laboratory" : state.roomId;
+  if (killer.targetRoomId || killer.roomId === goal) return;
+  killer.targetRoomId = route(killer.roomId, goal)[1] ?? null;
   if (killer.targetRoomId) {
     killer.moveElapsed = 0;
     killer.progress = 0;
@@ -658,7 +722,7 @@ export function tick(state: GameState, dt: number): void {
     const dark = affected(state, state.roomId, "blackout");
     const haunted = affected(state, state.roomId, "apparition");
     const whispers = affected(state, state.roomId, "whisper");
-    const calming = state.currentAction?.action === "wait";
+    const calming = state.currentAction?.action === "wait" || isHiding(state);
     const speed =
       dark &&
       state.currentAction &&
@@ -688,10 +752,12 @@ export function tick(state: GameState, dt: number): void {
       state.timeRemaining,
       nextExpiry,
       state.tibo.nextAppearanceAt - state.elapsed,
+      state.hideout.lostUntil > state.elapsed + 1e-8
+        ? state.hideout.lostUntil - state.elapsed : Infinity,
       state.killer.targetRoomId
         ? state.killer.moveDuration - state.killer.moveElapsed
         : Infinity,
-      state.killer.roomId === state.roomId && state.killer.lastEncounterAt !== null
+      !isHiding(state) && state.killer.roomId === state.roomId && state.killer.lastEncounterAt !== null
         ? state.killer.lastEncounterAt + 12 - state.elapsed
         : Infinity,
       state.currentAction

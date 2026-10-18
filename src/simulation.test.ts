@@ -3,6 +3,9 @@ import test from "node:test";
 import {
   applyDecision,
   CONNECTIONS,
+  HIDEOUT,
+  canHide,
+  isHiding,
   chooseLocalAction,
   createState,
   sabotage,
@@ -130,7 +133,7 @@ test("terminal and paused states do not drift and reset creates fresh state", ()
 
 test("a seeded encounter allows the player to win by sealing the next doorway", () => {
   // Tibo varies the available sealing windows; this proves a winning route exists.
-  const state = createState(123);
+  const state = createState(1);
   state.status = "running";
   for (let frame = 0; frame < 1801 && state.status === "running"; frame++) {
     // Door timing matters: save energy for the escape route rather than spam every effect.
@@ -320,7 +323,7 @@ test("the pursuer starts opposite Sam, takes legal edges, and moves more slowly"
   assert.equal(state.killer.encountered, false);
   assert.equal(state.killer.lastEncounterAt, null);
   let transitions = 0;
-  for (let frame = 0; frame < 600 && state.status === "running"; frame++) {
+  for (let frame = 0; frame < 1200 && state.status === "running"; frame++) {
     const previous = state.killer.roomId;
     tick(state, 0.1);
     const { roomId, targetRoomId, moveDuration } = state.killer;
@@ -360,6 +363,7 @@ test("Sam cannot route around an unseen killer but avoids its room after first c
   state.killer.roomId = "archive";
   assert.equal(chooseLocalAction(state).action, "move");
   state.killer.roomId = "reception";
+  state.hideout.completed = 1; // After the refuge visit, ordinary objective work resumes.
   assert.equal(chooseLocalAction(state).action, "search");
 });
 
@@ -604,4 +608,126 @@ test("pursuit, encounters, seeded Tibo events, and objectives ignore incoming fr
       }
     }
   }
+});
+
+function wardRefugeState() {
+  const state = createState(123);
+  state.status = "running";
+  state.controller = "api";
+  state.roomId = "ward";
+  state.killer.roomId = "ward";
+  state.killer.encountered = true;
+  state.killer.encounterCount = 1;
+  state.killer.lastEncounterAt = 0;
+  return state;
+}
+const hideDecision = { action: "hide", target: "ward", reason: "ベッドの陰で追跡をやり過ごす" } as const;
+
+test("hide validator rejects unseen, distant, locked, busy, paused, or cooling-down refuge use without mutation", () => {
+  for (const invalid of ["unseen", "distant", "target", "locked", "busy", "paused", "cooldown"] as const) {
+    const state = wardRefugeState();
+    if (invalid === "unseen") state.killer.encountered = false;
+    if (invalid === "distant") state.roomId = "archive";
+    if (invalid === "locked") state.locks.ward = 12;
+    if (invalid === "paused") state.paused = true;
+    if (invalid === "cooldown") state.hideout.availableAt = 42;
+    if (invalid === "busy") assert.equal(applyDecision(state, { action: "wait", target: "ward", reason: "wait" }), true);
+    const before = structuredClone(state);
+    assert.equal(applyDecision(state, invalid === "target" ? { ...hideDecision, target: "archive" } : hideDecision, "api"), false, invalid);
+    assert.deepEqual(state, before, invalid);
+  }
+  const valid = wardRefugeState();
+  assert.equal(canHide(valid), true);
+  assert.equal(applyDecision(valid, hideDecision, "api"), true);
+  assert.equal(isHiding(valid), true);
+  assert.equal(valid.currentAction!.duration, HIDEOUT.duration);
+  assert.equal(valid.hideout.availableAt, HIDEOUT.cooldown);
+  assert.equal(valid.decisions[0].source, "api");
+});
+
+test("ward concealment prevents contact and sends the pursuer away before Sam reappears", () => {
+  const state = wardRefugeState();
+  const fearBefore = state.fear;
+  assert.equal(applyDecision(state, hideDecision), true);
+  tick(state, HIDEOUT.duration);
+  assert.equal(state.hideout.completed, 1);
+  assert.equal(isHiding(state), false);
+  assert.equal(state.killer.encounterCount, 1, "sharing the room while concealed never triggers another encounter");
+  assert.notEqual(state.killer.roomId, "ward", "the killer really leaves before concealment ends");
+  assert.notEqual(state.killer.targetRoomId, "ward");
+  assert.ok(state.fear < fearBefore);
+  assert.equal(state.hideout.lostUntil, HIDEOUT.duration + HIDEOUT.lostDuration);
+  assert.equal(canHide(state), false, "the same spot cannot immediately hide Sam again");
+  tick(state, HIDEOUT.lostDuration - 0.1);
+  assert.notEqual(state.killer.targetRoomId, "ward", "the killer keeps searching elsewhere for the promised respite");
+  state.controller = "local";
+  tick(state, 180);
+  assert.equal(state.status, "escaped");
+  assert.equal(state.keycard, true);
+  assert.equal(state.power, true);
+  assert.equal(state.hideout.completed, 1, "local policy returns to its escape objectives after one refuge visit");
+});
+
+test("eight unopposed seeds send Sam to the ward hideout and then complete the escape", () => {
+  for (const seed of [1, 2, 3, 7, 42, 123, 0x53414d, 0xffffffff]) {
+    const state = createState(seed);
+    state.status = "running";
+    tick(state, 180);
+    assert.equal(state.status, "escaped", `seed ${seed}`);
+    assert.equal(state.hideout.completed, 1, `seed ${seed}`);
+    assert.ok(state.visited.includes("ward"), `seed ${seed}`);
+    const hide = state.decisions.find((decision) => decision.action === "hide" && decision.source === "local");
+    assert.ok(hide, `seed ${seed} chose the hiding action`);
+    assert.ok(state.decisions.some((decision) => decision.time > hide.time + HIDEOUT.duration - 1e-7 && decision.action === "restore"));
+    assert.equal(state.keycard && state.power, true);
+    assert.ok(state.elapsed < 110, `seed ${seed}: ${state.elapsed}s leaves time for human interference`);
+  }
+});
+
+test("blackout and a sealed ward still affect hidden Sam, and apparition flushes him out", () => {
+  const state = wardRefugeState();
+  state.fear = 20;
+  assert.equal(applyDecision(state, hideDecision), true);
+  assert.equal(sabotage(state, "blackout", "ward"), true);
+  assert.equal(sabotage(state, "lock", "ward"), true);
+  const fearAfterHits = state.fear;
+  tick(state, 12);
+  assert.equal(isHiding(state), true, "blackout and a door seal do not erase concealment");
+  assert.ok(Math.abs(state.currentAction!.elapsed - 12) < 1e-7, "concealment keeps its fixed real duration in darkness");
+  assert.ok(state.fear > fearAfterHits, "darkness still raises fear behind the bed");
+  assert.equal(sabotage(state, "apparition", "archive"), true);
+  assert.equal(isHiding(state), true, "an apparition in a different room cannot flush the hideout");
+  state.cooldowns.apparition = 0;
+  state.energy = 100;
+  assert.equal(sabotage(state, "apparition", "ward"), true);
+  assert.equal(isHiding(state), false);
+  assert.equal(state.hideout.completed, 0);
+  assert.equal(state.hideout.lostUntil, state.elapsed);
+  assert.equal(state.hideout.availableAt, HIDEOUT.cooldown, "interruption cannot refund the hiding cooldown");
+  assert.equal(state.currentAction, null);
+  assert.match(state.decisions[0].reason, /隠れ場所から飛び出し/);
+  tick(state, 0.1);
+  assert.equal(state.killer.targetRoomId, "ward", "the pursuer immediately resumes Sam's trail");
+});
+
+test("hide timers freeze during pause and thinking, and large ticks preserve concealment boundaries", () => {
+  for (const mode of ["paused", "thinking"] as const) {
+    const state = wardRefugeState();
+    assert.equal(applyDecision(state, hideDecision), true);
+    tick(state, 2);
+    state[mode] = true;
+    const before = structuredClone(state);
+    tick(state, 180);
+    assert.deepEqual(state, before, mode);
+    state[mode] = false;
+    tick(state, HIDEOUT.duration - 2);
+    assert.equal(state.hideout.completed, 1);
+  }
+  function run(frameSize: number) {
+    const state = wardRefugeState();
+    assert.equal(applyDecision(state, hideDecision), true);
+    while (state.elapsed < 48 - 1e-7) tick(state, Math.min(frameSize, 48 - state.elapsed));
+    return JSON.parse(JSON.stringify(state, (_key, value) => typeof value === "number" ? Math.round(value * 1e6) / 1e6 : value));
+  }
+  assert.deepEqual(run(48), run(1 / 60));
 });

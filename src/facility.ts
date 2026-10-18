@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { ROOMS, type GameState, type RoomId } from "./simulation";
+import { ROOMS, isHiding, type GameState, type RoomId } from "./simulation";
 
 type Room = (typeof ROOMS)[number];
 type Point = { x: number; y: number };
@@ -710,6 +710,11 @@ export function createFacility(
     const label = document.createElement("span");
     label.className = "facility-room-label";
     label.textContent = `${room.label} ${roomNames[room.id]}`;
+    if (room.id === "ward") {
+      const refuge = document.createElement("small");
+      refuge.textContent = "隠れ場所";
+      label.append(refuge);
+    }
     label.style.left = `${(room.x + 6) / W * 100}%`;
     label.style.top = `${(room.y + 7) / H * 100}%`;
     labels.append(label);
@@ -842,6 +847,7 @@ export function createFacility(
       const { x, y } = this.playerPoint;
       this.agent.setPosition(x, y);
       this.samSprite?.setPosition(x, y);
+      this.samSprite?.setAlpha(state && isHiding(state) ? 0.55 : 1);
       if (this.samSprite && Math.abs(x - previous.x) > 0.1) this.samSprite.setFlipX(x < previous.x);
       if (state) {
         const killer = state.killer;
@@ -867,6 +873,7 @@ export function createFacility(
       }
       agentLabel.style.left = `${x / W * 100}%`;
       agentLabel.style.top = `${y / H * 100}%`;
+      agentLabel.textContent = state && isHiding(state) ? "サム · 隠れている" : "サム";
       const moving =
         Math.hypot(
           this.playerPoint.x - previous.x,

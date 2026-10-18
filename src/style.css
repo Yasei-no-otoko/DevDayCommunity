@@ -738,11 +738,6 @@ select {
 @keyframes watchback-arrive { from { opacity:0; } to { opacity:1; } }
 @media(max-width:650px) {
   .map-coordinate #killer-status { display:block; margin-left:0; font-size:8px; }
-  .map-area .tibo-banner { width:174px; right:8px; padding-left:47px; }
-  .tibo-banner img { width:44px; height:74px; }
-  .tibo-banner strong { font-size:11px; }
-  .tibo-banner small { font-size:9px; }
-  .tibo-banner div>span { font-size:8px; }
   .watchback-copy { left:12px; right:12px; bottom:12px; gap:6px; }
   .watchback-copy>p { font-size:11px; letter-spacing:.02em; }
   .watchback-copy>strong { font-size:18px; letter-spacing:.02em; }
@@ -752,40 +747,75 @@ select {
 
 .tibo-banner {
   position:absolute;
-  top:12px;
-  right:12px;
+  right:0;
+  bottom:0;
   z-index:3;
-  width:210px;
-  min-height:69px;
-  padding:8px 10px 8px 62px;
+  width:clamp(235px,35%,360px);
+  max-width:100%;
+  height:min(320px,82%);
+  overflow:hidden;
   pointer-events:none;
-  border:1px solid #d5d1a5;
-  background:#142719f2;
-  box-shadow:0 5px 18px #0007;
+  clip-path:polygon(9% 0,100% 0,100% 100%,0 100%);
+  border-top:1px solid #a7e9d2;
+  border-left:1px solid #78ad93;
+  background:linear-gradient(155deg,#203f35e8,#0c1814f5 75%);
+  animation:tibo-cutin .25s ease-out both;
+}
+.tibo-banner::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(180deg,transparent 25%,#06120a11 45%,#06120ae8 76%,#06120a 100%);
 }
 .tibo-banner img {
   display:none;
   position:absolute;
-  left:5px;
-  bottom:0;
-  height:85px;
-  width:56px;
-  object-fit:contain;
-  object-position:center bottom;
+  left:-32%;
+  top:-22%;
+  width:175%;
+  max-width:none;
+  height:auto;
+  filter:drop-shadow(0 0 15px #8bdec933);
 }
 .tibo-banner.has-portrait img { display:block; }
 .tibo-fallback {
   position:absolute;
-  left:14px;
-  top:17px;
-  font:600 29px/1 "Barlow Condensed",sans-serif;
-  color:#e0e7b1;
+  left:25%;
+  top:12%;
+  font:600 125px/1 "Barlow Condensed",sans-serif;
+  color:#bfe4cd;
 }
 .tibo-banner.has-portrait .tibo-fallback { display:none; }
-.tibo-banner div { display:flex; flex-direction:column; gap:2px; }
-.tibo-banner div>span { font-size:9px; letter-spacing:.1em; color:#c5d4a6; }
-.tibo-banner strong { font-size:13px; color:#ecf6d8; white-space:nowrap; }
-.tibo-banner small { font-size:10px; color:#d9e6bd; white-space:nowrap; }
+.tibo-copy {
+  position:absolute;
+  z-index:1;
+  bottom:14px;
+  left:25px;
+  right:12px;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  text-shadow:0 2px 8px #000;
+}
+.tibo-copy>span {
+  font:600 29px/1 "Barlow Condensed",sans-serif;
+  letter-spacing:.08em;
+  color:#b9f2d7;
+}
+.tibo-copy>span b { font:500 9px/1 "IBM Plex Mono",monospace; letter-spacing:.12em; }
+.tibo-copy strong { font-size:18px; line-height:1.4; color:#f0ffe9; white-space:nowrap; }
+.tibo-copy small { font-size:12px; line-height:1.4; color:#dceccd; }
+.tibo-copy em { font-size:11px; line-height:1.4; color:#afc9b6; font-style:normal; }
+@keyframes tibo-cutin { from { opacity:0; } to { opacity:1; } }
+@media(max-width:650px) {
+  .tibo-banner { width:min(230px,64%); height:min(290px,78%); }
+  .tibo-copy { left:23px; right:8px; bottom:12px; gap:4px; }
+  .tibo-copy>span { font-size:26px; }
+  .tibo-copy strong { font-size:16px; }
+  .tibo-copy small { font-size:11px; }
+  .tibo-copy em { font-size:10px; }
+}
 #killer-status { margin-left:12px; font-size:10px; color:#d2a3ba; }
 #killer-status.encountered { color:#f2b0aa; }
 .killer-dot { width:6px; height:6px; background:#ed9ec1; box-shadow:0 0 6px #ed9ec177; }
@@ -802,7 +832,7 @@ select {
   text-shadow:0 1px 2px #000;
 }
 .facility-killer-label.approaching { color:#fff0d9; border-color:#f4aa91; }
-.watchback-active>.map-coordinate,.watchback-active>.tibo-banner { visibility:hidden; }
+.watchback-active>.map-coordinate,.watchback-active>.tibo-banner,#app:has(dialog[open]) .tibo-banner { visibility:hidden; }
 
 .map-coordinate {
   position:absolute;
@@ -877,6 +907,16 @@ select {
   border-left:2px solid #9fb68a;
   white-space:nowrap;
   box-shadow:0 1px 4px #0009;
+}
+
+.facility-room-label>small {
+  display:block;
+  margin-top:2px;
+  max-width:100%;
+  font-size:clamp(10px,.7vw,12px);
+  line-height:1.3;
+  font-weight:500;
+  color:#9bdacb;
 }
 
 .facility-room-label.selected {
@@ -1446,7 +1486,13 @@ dialog .start-button {
   .subject-identity h2 small { font-size:13px; }
   #killer-status { font-size:13px; }
   .facility-killer-label { font-size:14px; }
-  .tibo-banner { transform:scale(1.2); transform-origin:top right; }
+  .tibo-banner { width:min(400px,35%); height:min(470px,82%); }
+  .tibo-copy { left:38px; right:18px; bottom:22px; gap:7px; }
+  .tibo-copy>span { font-size:42px; }
+  .tibo-copy>span b { font-size:12px; }
+  .tibo-copy strong { font-size:26px; }
+  .tibo-copy small { font-size:17px; }
+  .tibo-copy em { font-size:15px; }
   .fear-header,.energy-row {
     font-size:17px;
   }
