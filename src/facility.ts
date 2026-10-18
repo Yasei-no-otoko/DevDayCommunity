@@ -702,6 +702,9 @@ export function createFacility(
   const labels = document.createElement("div");
   labels.className = "facility-labels";
   labels.setAttribute("aria-hidden", "true");
+  const atmosphere = document.createElement("div");
+  atmosphere.className = "facility-atmosphere";
+  labels.append(atmosphere);
   const roomNames: Record<RoomId, string> = {
     reception: "受付", corridor: "中央ホール", ward: "隔離病棟",
     archive: "書庫", laboratory: "研究室", generator: "非常用電源室", exit: "避難口",
@@ -845,6 +848,8 @@ export function createFacility(
       this.playerPoint.x += (target.x - this.playerPoint.x) * smoothing;
       this.playerPoint.y += (target.y - this.playerPoint.y) * smoothing;
       const { x, y } = this.playerPoint;
+      atmosphere.style.setProperty("--subject-x", `${x / W * 100}%`);
+      atmosphere.style.setProperty("--subject-y", `${y / H * 100}%`);
       this.agent.setPosition(x, y);
       this.samSprite?.setPosition(x, y);
       this.samSprite?.setAlpha(state && isHiding(state) ? 0.55 : 1);

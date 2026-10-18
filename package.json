@@ -10,7 +10,7 @@
     "dev": "node --env-file-if-exists=.env.local --import ./scripts/sites-env.mjs ./scripts/run-framework.mjs dev",
     "build": "tsc --noEmit && node scripts/run-framework.mjs build",
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
-    "test": "node --experimental-strip-types --test src/simulation.test.ts server/api.test.mjs server/worker-api.test.mjs"
+    "test": "node --experimental-strip-types --test src/simulation.test.ts src/immersion.test.ts server/api.test.mjs server/worker-api.test.mjs"
   },
   "dependencies": {
     "next": "16.3.4",

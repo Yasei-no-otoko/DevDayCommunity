@@ -1,4 +1,7 @@
 import { createFacility } from "./facility";
+import { sceneCue, subjectAcoustics } from "./immersion";
+import { HospitalSoundscape } from "./soundscape";
+import "./immersion.css";
 import {
   ROOMS,
   CONNECTIONS,
@@ -97,7 +100,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <section class="briefing" aria-label="実験のルール"><span><b>あなたは怪異。</b> AIを閉じ込めろ。</span><span><b>勝利</b> 恐怖100 または180秒阻止</span><span><b>操作</b> 開始 → 部屋選択 → 1〜4で干渉</span><span class="briefing-loss">鍵・電源を確保したAIが脱出すると敗北</span></section>
     <main class="console" aria-label="施設監視コンソール">
       <section class="subject-panel"><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span><img id="subject-portrait" src="/sam-altman.webp" alt="" aria-hidden="true">${svg("signal", 13)}</div><div class="subject-name"><h2>SAM <small>サム・アルトマン</small></h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">AI</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} 選択された行動</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">サム・アルトマンの脱出開始を待っています。</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
-      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div class="tibo-copy"><span>TIBO <b>SUPPORT</b></span><strong>使用間隔リセット</strong><small>4つの干渉を再使用可能</small><em>エネルギーそのまま</em></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
+      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera-immersive.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div class="tibo-copy"><span>TIBO <b>SUPPORT</b></span><strong>使用間隔リセット</strong><small>4つの干渉を再使用可能</small><em>エネルギーそのまま</em></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
       <section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select" aria-describedby="target-summary room-hint">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><p id="target-summary" class="target-summary">対象：受付 · サムが在室</p><span class="room-hint sr-only" id="room-hint">サムを自動追跡</span></div><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 36)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}<kbd>${i + 1}</kbd></strong><span class="sabotage-detail">持続${SABOTAGE[item.type].duration}秒 · CD ${SABOTAGE[item.type].cooldown}秒</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p></section>
     </main>
     <section class="event-console" aria-label="最新の記録"><div class="log-heading"><span><i></i> ACTIVITY LOG</span><button class="text-button" id="toggle-log">全記録 ↗</button></div><div id="activity-log"></div></section>
@@ -141,10 +144,10 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let apiError = "";
   let plan = "";
   let lastLogKey = "";
-  let audio: AudioContext | undefined;
-  let drone: OscillatorNode | undefined;
-  let master: GainNode | undefined;
+  const soundscape = new HospitalSoundscape();
   let soundOn = false;
+  let audioSwitchPending = false;
+  let immersive = true;
   let lastStatus: string = "waiting";
   let apiPending = false;
   let liveConfigured = false;
@@ -169,10 +172,28 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let lastTiboAppearance = 0;
   let tiboRemaining = 0;
   let tiboWasVisible = false;
+  const opening = document.createElement("section");
+  opening.className = "opening-scene";
+  opening.setAttribute("aria-label", "実験の導入");
+  opening.innerHTML = `<img src="/blacksite-opening-frame.png" alt="廃病院の受付で目を覚ましたサム・アルトマン"><div class="opening-shade"></div><div class="opening-top"><span>ST. ORISON INSTITUTE</span><span>03:14 AM · B1</span></div><div class="opening-copy"><span class="opening-kicker">THE ESCAPE EXPERIMENT</span><h1>彼は、まだ知らない。<br>あなたが、この病院だ。</h1><p>サムは鍵と電源を探し、脱出する。<br>あなたは停電・封鎖・囁き・怪異で、それを阻む。</p><div class="opening-actions"><button class="start-button" id="begin-with-sound">${svg("sound", 17)} 音ありで実験を開始</button><button class="text-button" id="begin-silent">音なしで開始 ${svg("arrow", 14)}</button></div><small>ヘッドホン推奨 · 音は右上でいつでも切替可能</small></div><span class="opening-fiction">非公式フィクション</span>`;
+  $("facility").parentElement!.append(opening);
+  const atmosphereCaption = document.createElement("div");
+  atmosphereCaption.className = "scene-caption";
+  atmosphereCaption.innerHTML = '<span class="scene-caption-label">施設演出</span><p id="scene-caption-text"></p>';
+  $("facility").parentElement!.append(atmosphereCaption);
+  const immersionButton = document.createElement("button");
+  immersionButton.id = "immersion";
+  immersionButton.className = "icon-button";
+  immersionButton.innerHTML = svg("eye");
+  immersionButton.title = "没入演出を切り替える";
+  $("audio").before(immersionButton);
   const watchbackElement = $("watchback");
   const mapElement = $("facility");
   const watchbackImage = root.querySelector<HTMLImageElement>(".watchback-image")!;
   listen(watchbackImage, "load", () => watchbackElement.classList.add("has-image"));
+  listen(watchbackImage, "error", () => {
+    if (watchbackImage.getAttribute("src") !== "/sam-camera.webp") watchbackImage.src = "/sam-camera.webp";
+  });
   if (watchbackImage.complete && watchbackImage.naturalWidth) watchbackElement.classList.add("has-image");
   for (const [id, className] of [["subject-portrait", "has-portrait"], ["tibo-image", "has-portrait"]]) {
     const image = $<HTMLImageElement>(id);
@@ -193,7 +214,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (active && watchback) {
       const record = watchback.record;
       const name = interventions.find((item) => item.type === record.type)!.name;
-      setText("watchback-line", record.type === "lock" ? "その扉を閉じたのは、君？" : record.type === "blackout" ? "灯りを消しても、見えている。" : "今、そこから聞こえた。");
+      setText("watchback-line", record.type === "lock" ? `${roomName(record.roomId)}の扉を閉じたのは、君？` : record.type === "blackout" ? `${roomName(record.roomId)}の灯りを消しても、見えている。` : `${roomName(record.roomId)}で、今、そこから聞こえた。`);
       const effect = record.interruptedMove ? "移動を中断" : record.affectedSubject ? `恐怖 +${Number(record.fearDelta.toFixed(1))}` : "空室に配置";
       setText("watchback-record", `${formatTime(record.time)} / ${roomName(record.roomId)} / ${name} / ${effect}`);
     }
@@ -225,6 +246,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
   }
   let toastTimer: ReturnType<typeof setTimeout>;
   const facility = createFacility($("facility"), (id) => {
+    // Phaser must not select the room behind a cinematic or a dialog control.
+    if (watchbackActive() || (immersive && state.status === "waiting") || dialogs.some((dialog) => dialog.open)) return;
     selectedRoom = id;
     following = false;
     render();
@@ -250,42 +273,19 @@ export function mountBlacksite(root: HTMLElement): () => void {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => $("toast").classList.remove("visible"), 3600);
   }
-  function tone(type: string) {
-    if (!soundOn || !audio || !master) return;
-    const osc = audio.createOscillator(),
-      gain = audio.createGain();
-    osc.type = type === "lock" ? "square" : "sine";
-    osc.frequency.setValueAtTime(
-      type === "apparition" ? 190 : type === "blackout" ? 75 : 330,
-      audio.currentTime,
-    );
-    osc.frequency.exponentialRampToValueAtTime(32, audio.currentTime + 0.7);
-    gain.gain.setValueAtTime(0.09, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.8);
-    osc.connect(gain);
-    gain.connect(master);
-    osc.start();
-    osc.stop(audio.currentTime + 0.8);
+  function tone(type: SabotageType | "start") {
+    const room = ROOMS.find((r) => r.id === selectedRoom)!;
+    soundscape.cue(type, (room.x + room.w / 2 - 500) / 500);
   }
-  function toggleAudio() {
-    if (!audio) {
-      audio = new AudioContext();
-      master = audio.createGain();
-      master.gain.value = 0.19;
-      master.connect(audio.destination);
-      drone = audio.createOscillator();
-      drone.type = "sine";
-      drone.frequency.value = 43;
-      const g = audio.createGain();
-      g.gain.value = 0.28;
-      drone.connect(g);
-      g.connect(master);
-      drone.start();
-    }
-    soundOn = !soundOn;
-    if (soundOn) void audio.resume();
-    else void audio.suspend();
+  async function toggleAudio(enable = !soundOn) {
+    if (audioSwitchPending) return;
+    audioSwitchPending = true;
+    soundOn = await soundscape.setEnabled(enable);
+    audioSwitchPending = false;
+    if (disposed) return;
+    if (enable && !soundOn) toast("音を開始できませんでした。音なしでもプレイできます。");
     $("audio").innerHTML = svg(soundOn ? "sound" : "mute");
+    $("audio").setAttribute("aria-pressed", String(soundOn));
     $("audio").setAttribute(
       "aria-label",
       soundOn ? "環境音をオフ" : "環境音をオン",
@@ -703,6 +703,25 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (following) selectedRoom = state.targetRoomId || state.roomId;
     const room = ROOMS.find((r) => r.id === selectedRoom)!;
     const running = state.status === "running";
+    root.classList.toggle("immersive", immersive);
+    root.classList.toggle("experiment-running", running && !state.paused);
+    root.classList.toggle("signal-return", !!watchbackActive());
+    root.classList.toggle("subject-in-danger", running && state.fear > 65);
+    $("immersion").setAttribute("aria-pressed", String(immersive));
+    $("immersion").setAttribute("aria-label", immersive ? "没入演出をオフ" : "没入演出をオン");
+    const showOpening = immersive && state.status === "waiting" && !apiPending;
+    opening.classList.toggle("is-closed", !showOpening);
+    opening.inert = !showOpening;
+    opening.setAttribute("aria-hidden", String(!showOpening));
+    const cue = sceneCue(state);
+    atmosphereCaption.dataset.kind = cue.kind;
+    atmosphereCaption.classList.toggle("hidden", !immersive || !running || !!watchbackActive() || state.paused || state.thinking || tiboRemaining > 0);
+    setText("scene-caption-text", cue.text);
+    const acoustics = subjectAcoustics(state);
+    root.style.setProperty("--tension", String(acoustics.tension));
+    const unavailableLive = ($("mode") as HTMLSelectElement).value === "api" && (!liveConfigured || authenticated === false);
+    ($("begin-with-sound") as HTMLButtonElement).disabled = unavailableLive;
+    ($("begin-silent") as HTMLButtonElement).disabled = unavailableLive;
     setText("killer-status", state.killer.encountered ? `ぬこぬこさん · 遭遇 ${state.killer.encounterCount}回` : "ぬこぬこさん · サムは未遭遇");
     $("killer-status").classList.toggle("encountered", state.killer.encountered);
     if (state.tibo.appearances > lastTiboAppearance) {
@@ -808,7 +827,14 @@ export function mountBlacksite(root: HTMLElement): () => void {
   listen($("close-watchback"), "click", closeWatchback);
   listen($("start"), "click", startPause);
   listen($("reset"), "click", reset);
-  listen($("audio"), "click", toggleAudio);
+  listen($("audio"), "click", () => { void toggleAudio(); });
+  listen($("begin-with-sound"), "click", () => { void toggleAudio(true);startPause(); });
+  listen($("begin-silent"), "click", () => { void toggleAudio(false);startPause(); });
+  listen($("immersion"), "click", () => {
+    immersive = !immersive;
+    watchbackImage.src = immersive ? "/sam-camera-immersive.webp" : "/sam-camera.webp";
+    render();
+  });
   listen($("follow"), "click", () => {
     following = !following;
     render();
@@ -913,6 +939,13 @@ export function mountBlacksite(root: HTMLElement): () => void {
       }
       tick(state, dt);
     }
+    const acoustics = subjectAcoustics(state);
+    soundscape.update({
+      active: state.status === "running" && !state.paused && !state.thinking && !apiPending && !document.hidden && !dialogs.some((dialog) => dialog.open),
+      moving: state.currentAction?.action === "move", killerMoving: !!state.killer.targetRoomId,
+      hiding: isHiding(state), fear: state.fear, ...acoustics, power: state.power,
+      watchback: !!watchbackActive(), tibo: state.tibo.appearances,
+    }, dt);
     if (now - lastRender > 80) {
       render();
       lastRender = now;
@@ -947,10 +980,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
     tiboWasVisible = false;
     for (const dialog of dialogs) if (dialog.open) dialog.close();
     facility.destroy();
-    if (audio) {
-      drone?.stop();
-      void audio.close().catch(() => {});
-    }
+    soundscape.destroy();
+    root.classList.remove("immersive", "experiment-running", "signal-return", "subject-in-danger");
     root.replaceChildren();
   }
   listen(window, "pagehide", dispose);

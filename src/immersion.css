@@ -1,0 +1,83 @@
+/* A presentation layer over the existing console. No layout or input geometry changes. */
+.facility-atmosphere { display:none; position:absolute; inset:0; pointer-events:none; }
+.immersive .facility-atmosphere {
+  display:block;
+  background:radial-gradient(ellipse 35% 45% at var(--subject-x,23%) var(--subject-y,76%),transparent 10%,#0107060a 45%,#0105057a 100%);
+}
+.immersive .facility-panel {
+  border-color:#526155;
+  box-shadow:0 0 0 3px #020705,0 12px 44px #0008,inset 0 1px #c0d3ad22;
+}
+.immersive .map-area::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+  box-shadow:inset 0 0 42px 9px #000a;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,#00000019 3px 4px);
+}
+.immersive .subject-panel,.immersive .interference-panel {
+  background:linear-gradient(160deg,#101a16,#09110e);
+}
+.immersive .panel-heading { background:#101a15; }
+.immersive .sabotage { background:linear-gradient(145deg,#18271e,#101a15); }
+.immersive .sabotage:hover:not(:disabled),.immersive .sabotage:focus-visible { background:#2c3c29; }
+.immersive .subject-avatar { box-shadow:0 0 24px #9bc3a21a; }
+.immersive .map-coordinate,.immersive .map-legend { z-index:3; }
+.immersive .camera-tag i { background:#e9ad8c; box-shadow:0 0 9px #ec967747; }
+.immersive.subject-in-danger .facility-panel { border-color:#93664e; }
+.immersive.subject-in-danger .map-area::after { box-shadow:inset 0 0 55px 12px #27080370; }
+.immersive .watchback-image { animation:watchback-push 3.6s ease-out both; }
+.immersive .watchback-grain { opacity:.35; }
+.immersive.signal-return .subject-avatar { box-shadow:0 0 24px #d48b693b; }
+#immersion[aria-pressed="true"] { color:#dcf0bb; border-color:#849774; background:#253420; }
+.opening-scene {
+  position:absolute;
+  z-index:6;
+  inset:0;
+  overflow:hidden;
+  background:#050b08;
+  opacity:1;
+  visibility:visible;
+  transition:opacity .55s ease,visibility .55s;
+}
+.opening-scene.is-closed { opacity:0; visibility:hidden; pointer-events:none; }
+.opening-scene>img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:35% 45%; filter:saturate(.55) contrast(1.1); }
+.opening-shade { position:absolute; inset:0; background:linear-gradient(90deg,#030a0633 15%,#040b0870 40%,#030a07f5 100%),linear-gradient(0deg,#020705cc,transparent 55%,#02070588); }
+.opening-top { position:absolute; top:20px; left:22px; right:22px; display:flex; justify-content:space-between; gap:10px; color:#c0cbb5; font:9px/1.5 "IBM Plex Mono",monospace; letter-spacing:.13em; }
+.opening-copy { position:absolute; left:45%; right:5%; bottom:12%; color:#edf2e2; text-shadow:0 2px 10px #000; }
+.opening-kicker { font:9px/1.5 "IBM Plex Mono",monospace; letter-spacing:.18em; color:#b6c7aa; }
+.opening-copy h1 { font:500 clamp(21px,1.8vw,35px)/1.65 "Noto Sans JP",sans-serif; letter-spacing:.035em; margin:14px 0 16px; }
+.opening-copy p { font:400 clamp(11px,.9vw,16px)/1.95 "Noto Sans JP",sans-serif; color:#bcc8b6; }
+.opening-actions { display:flex; align-items:flex-start; gap:8px; flex-direction:column; margin-top:25px; }
+.opening-actions .start-button { min-height:44px; width:100%; max-width:310px; justify-content:center; gap:10px; font-size:12px; white-space:normal; padding:12px 13px; }
+.opening-actions .text-button { min-height:36px; font-size:10px; gap:10px; padding:6px 0; }
+.opening-copy>small { display:block; font:9px/1.6 "Noto Sans JP",sans-serif; color:#94a68a; margin-top:10px; }
+.opening-fiction { position:absolute; bottom:14px; left:20px; font-size:8px; color:#a2b097; }
+.scene-caption { position:absolute; z-index:3; left:7%; right:7%; bottom:42px; pointer-events:none; text-align:center; padding:13px 15px 10px; background:linear-gradient(0deg,#030905e8,#030905c4 55%,transparent); text-shadow:0 2px 6px #000; }
+.scene-caption-label { font:8px/1.5 "IBM Plex Mono","Noto Sans JP",monospace; letter-spacing:.18em; color:#9cae96; }
+.scene-caption p { font:400 clamp(11px,1.05vw,18px)/1.8 "Noto Sans JP",sans-serif; letter-spacing:.055em; color:#e1e7d6; margin-top:3px; }
+.scene-caption[data-kind="danger"] p,.scene-caption[data-kind="interference"] p { color:#ead2bd; }
+.scene-caption[data-kind="hiding"] p { color:#c4d7ca; }
+@keyframes watchback-push { from { transform:scale(1.01); } to { transform:scale(1.085); } }
+@media(min-width:1600px) { .opening-top { top:28px; left:30px; right:30px; font-size:12px; } .opening-actions { margin-top:34px; gap:12px; } .opening-actions .start-button { min-height:54px; font-size:16px; max-width:360px; } .opening-actions .text-button { font-size:13px; } .opening-copy>small { font-size:11px; } .scene-caption { bottom:48px; } }
+@media(max-width:1150px) { .opening-copy { left:44%; bottom:12%; right:6%; } .opening-copy h1 { font-size:29px; } }
+@media(max-width:650px) {
+  .opening-scene>img { object-position:27% 40%; }
+  .opening-shade { background:linear-gradient(0deg,#020805fa 2%,#030a07d9 48%,#030a0722 100%); }
+  .opening-top { top:14px; left:14px; right:14px; font-size:7px; letter-spacing:.03em; }
+  .opening-copy { left:7%; right:7%; bottom:8%; }
+  .opening-copy h1 { font-size:23px; line-height:1.5; margin:9px 0 11px; }
+  .opening-kicker { font-size:8px; }
+  .opening-copy p { font-size:10px; line-height:1.8; }
+  .opening-actions { margin-top:14px; gap:3px; flex-direction:row; align-items:center; flex-wrap:wrap; }
+  .opening-actions .start-button { font-size:11px; padding:9px; min-height:44px; width:auto; flex:1 1 170px; max-width:none; }
+  .opening-actions .text-button { font-size:9px; padding:6px; justify-content:center; flex:1 1 95px; }
+  .opening-copy>small { font-size:8px; margin-top:6px; }
+  .opening-fiction { bottom:5px; left:7%; font-size:7px; }
+  .scene-caption { left:3%; right:3%; bottom:38px; padding:10px 8px 6px; }
+  .scene-caption p { font-size:10px; line-height:1.7; letter-spacing:0; }
+  .scene-caption-label { font-size:7px; }
+}
+@media(prefers-reduced-motion:reduce) { .opening-scene { transition:none; } .immersive .watchback-image { animation:none; } }
