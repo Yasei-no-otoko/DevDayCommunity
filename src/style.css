@@ -343,6 +343,14 @@ select {
   color:#c0d6b8;
   white-space:nowrap;
 }
+.subject-identity #subject-status.encountered {
+  color:#ff9185;
+  font-weight:700;
+}
+.subject-identity #subject-status.encountered i {
+  background:#ff736c;
+  box-shadow:0 0 8px #ff736c88;
+}
 
 .subject-identity #subject-status i,.connection i,.camera-tag i,.log-heading i {
   display:inline-block;
@@ -817,7 +825,7 @@ select {
   .tibo-copy em { font-size:10px; }
 }
 #killer-status { margin-left:12px; font-size:10px; color:#d2a3ba; }
-#killer-status.encountered { color:#f2b0aa; }
+#killer-status.encountered { color:#ff9185; font-weight:700; }
 .killer-dot { width:6px; height:6px; background:#ed9ec1; box-shadow:0 0 6px #ed9ec177; }
 .facility-killer-label {
   position:absolute;
@@ -1347,26 +1355,26 @@ dialog .start-button {
   margin-bottom:4px;
 }
 
-.result.contact-failure {
+.result.capture-failure {
   padding: 24px;
   border: 4px solid #b33a37;
   background: radial-gradient(ellipse at center, #3c1215 0%, #13090b 72%);
   box-shadow: inset 0 0 60px #e33d3d38;
 }
 
-.result.contact-failure .eyebrow,
-.result.contact-failure .result-verdict {
+.result.capture-failure .eyebrow,
+.result.capture-failure .result-verdict {
   color: #ff9185;
 }
 
-.result.contact-failure h2 {
+.result.capture-failure h2 {
   color: #fff0e9;
   font-size: clamp(34px, 6vw, 58px);
   font-weight: 800;
   text-shadow: 0 0 22px #ef443e8c;
 }
 
-.result.contact-failure p {
+.result.capture-failure p {
   color: #e8b8ae;
 }
 
@@ -1436,6 +1444,17 @@ dialog .start-button {
 #toast.visible {
   opacity:1;
   transform:translate(-50%,0);
+}
+
+#toast.capture-notice {
+  padding:14px 22px;
+  border:2px solid #ff9185;
+  background:linear-gradient(135deg,#641d20,#240d11);
+  color:#fff0e9;
+  font-size:clamp(16px,2vw,21px);
+  font-weight:800;
+  letter-spacing:.02em;
+  box-shadow:0 8px 36px #000c,0 0 24px #e33d3d55;
 }
 
 @media(min-width:1600px) and (min-height:850px) {
