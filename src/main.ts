@@ -633,7 +633,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     $("timer").classList.toggle("urgent", state.timeRemaining < 30);
     $("fear").textContent = Math.round(state.fear).toString().padStart(2, "0");
     $("fear-fill").style.width = `${state.fear}%`;
-    $("fear-fill").style.background = state.fear > 60 ? "#e57463" : "#a1c4ae";
+    $("fear-fill").style.background = state.fear > 60 ? "var(--danger)" : "var(--accent)";
     $("energy").textContent = Math.floor(state.energy).toString();
     $("energy-fill").style.width = `${state.energy}%`;
     $("interventions").textContent = state.interventions

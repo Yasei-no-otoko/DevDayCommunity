@@ -5,6 +5,15 @@ type Room = (typeof ROOMS)[number];
 type Point = { x: number; y: number };
 const W = 1000,
   H = 680;
+const mapTone = {
+  ivory: 0xe3ded1,
+  brass: 0xb2a17a,
+  brassLight: 0xd1c39f,
+  brassShadow: 0x83765c,
+  danger: 0xb96e5b,
+  killer: 0xb8877c,
+  charcoal: 0x090a09,
+};
 const center = (r: Room): Point => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 const roomFor = (id: RoomId) => ROOMS.find((r) => r.id === id)!;
 const routes: { from: RoomId; to: RoomId; points: number[][] }[] = [
@@ -666,6 +675,20 @@ function paintFacility(ctx: CanvasRenderingContext2D) {
       random() > 0.5 ? "rgba(161,186,145,.025)" : "rgba(0,0,0,.08)";
     ctx.fillRect(random() * W, random() * H, 1, 1);
   }
+  // A single cached pixel pass also works in browsers without Canvas 2D filters.
+  // Only the static plan is graded; sprites and interactive markers keep contrast.
+  const image = ctx.getImageData(0, 0, W, H);
+  for (let i = 0; i < image.data.length; i += 4) {
+    const r = image.data[i]!, g = image.data[i + 1]!, b = image.data[i + 2]!;
+    const grey = r * 0.2126 + g * 0.7152 + b * 0.0722;
+    const red = grey + (r - grey) * 0.18;
+    const green = grey + (g - grey) * 0.18;
+    const blue = grey + (b - grey) * 0.18;
+    image.data[i] = red * 0.58 + (red * 0.393 + green * 0.769 + blue * 0.189) * 0.42;
+    image.data[i + 1] = green * 0.58 + (red * 0.349 + green * 0.686 + blue * 0.168) * 0.42;
+    image.data[i + 2] = blue * 0.58 + (red * 0.272 + green * 0.534 + blue * 0.131) * 0.42;
+  }
+  ctx.putImageData(image, 0, 0);
 }
 
 function routePosition(from: RoomId, to: RoomId, progress: number): Point {
@@ -775,34 +798,34 @@ export function createFacility(
           "ENTRY BLOCKED",
           {
             align: "center",
-            backgroundColor: "#351713",
-            color: "#ffd0ba",
+            backgroundColor: "#30201b",
+            color: "#e5c3b1",
             fontFamily: "monospace",
             fontSize: "9px",
             padding: { x: 5, y: 4 },
-            stroke: "#8c3026",
+            stroke: "#754335",
             strokeThickness: 1,
           },
         ).setOrigin(0.5).setDepth(10).setVisible(false);
         this.lockLabels.set(room.id, label);
       }
       // Survivor: coat, pack, shoulders and a cool illuminated head.
-      const shadow = this.add.ellipse(1, 4, 19, 12, 0x000604, 0.8);
+      const shadow = this.add.ellipse(1, 4, 19, 12, mapTone.charcoal, 0.8);
       const coat = this.add.graphics();
-      coat.fillStyle(0xc8d2bd);
+      coat.fillStyle(mapTone.ivory);
       coat.fillRoundedRect(-5, -3, 10, 13, 3);
-      coat.fillStyle(0x5c7c6e);
+      coat.fillStyle(mapTone.brassShadow);
       coat.fillRoundedRect(-3, 1, 6, 7, 2);
-      coat.lineStyle(2, 0xb5cbb1);
+      coat.lineStyle(2, mapTone.brassLight);
       coat.lineBetween(-5, 1, -8, 4);
       coat.lineBetween(5, 1, 8, 3);
-      coat.lineStyle(2, 0x95b6a3);
+      coat.lineStyle(2, mapTone.brass);
       coat.lineBetween(-3, 8, -4, 13);
       coat.lineBetween(3, 8, 4, 13);
       const head = this.add
-        .circle(0, -6, 4.5, 0xd7ead0)
-        .setStrokeStyle(1, 0x95c7af);
-      const lamp = this.add.circle(4, -7, 1.7, 0xc2ffe0);
+        .circle(0, -6, 4.5, mapTone.ivory)
+        .setStrokeStyle(1, mapTone.brass);
+      const lamp = this.add.circle(4, -7, 1.7, mapTone.ivory);
       this.agent = this.add.container(this.playerPoint.x, this.playerPoint.y, [
         shadow,
         coat,
@@ -819,10 +842,10 @@ export function createFacility(
       this.killerAura = this.add.graphics().setDepth(2);
       const killerShadow = this.add.ellipse(0, 3, 32, 13, 0x18020e, 0.8);
       const killerBody = this.add.graphics();
-      killerBody.fillStyle(0xd299b9, 0.9);
+      killerBody.fillStyle(mapTone.killer, 0.9);
       killerBody.fillCircle(0, -26, 8);
       killerBody.fillTriangle(0, -20, -16, 4, 16, 4);
-      killerBody.lineStyle(3, 0xb96d96);
+      killerBody.lineStyle(3, mapTone.danger);
       killerBody.lineBetween(-5, 2, -7, 13);
       killerBody.lineBetween(5, 2, 7, 13);
       this.killerFallback = this.add.container(this.killerPoint.x, this.killerPoint.y, [killerShadow, killerBody]).setDepth(4);
@@ -878,11 +901,11 @@ export function createFacility(
         if (this.killerSprite && Math.abs(this.killerPoint.x - previousKillerX) > 0.1) this.killerSprite.setFlipX(this.killerPoint.x < previousKillerX);
         this.killerFallback.setPosition(this.killerPoint.x, this.killerPoint.y);
         this.killerAura.clear();
-        this.killerAura.lineStyle(killer.encountered ? 2 : 1, 0xe691b3, killer.encountered ? 0.8 : 0.45);
+        this.killerAura.lineStyle(killer.encountered ? 2 : 1, mapTone.killer, killer.encountered ? 0.8 : 0.45);
         this.killerAura.strokeEllipse(this.killerPoint.x, this.killerPoint.y, 48, 23);
         const approaching = Math.hypot(this.killerPoint.x - x, this.killerPoint.y - y) < 120;
         if (approaching) {
-          this.killerAura.lineStyle(2, 0xe59b8c, 0.5);
+          this.killerAura.lineStyle(2, mapTone.danger, 0.5);
           this.killerAura.strokeCircle(this.killerPoint.x, this.killerPoint.y, 36);
         }
         killerLabel.style.left = `${this.killerPoint.x / W * 100}%`;
@@ -907,14 +930,14 @@ export function createFacility(
       light.clear();
       // Soft concentric falloff and a long, diffuse handheld flashlight.
       for (let r = 80; r > 5; r -= 5) {
-        light.fillStyle(0x91e8bb, 0.005 * pulse);
+        light.fillStyle(mapTone.brassLight, 0.005 * pulse);
         light.fillCircle(x, y, r);
       }
       const angle = this.agent.rotation - Math.PI / 2;
       for (let i = 8; i >= 1; i--) {
         const length = 108 + i * 4,
           spread = 0.25 + i * 0.025;
-        light.fillStyle(0xc1e4af, 0.007);
+        light.fillStyle(mapTone.ivory, 0.007);
         light.fillTriangle(
           x,
           y,
@@ -924,11 +947,11 @@ export function createFacility(
           y + Math.sin(angle + spread) * length,
         );
       }
-      light.lineStyle(1, 0x9bd7b2, 0.55);
+      light.lineStyle(1, mapTone.brassLight, 0.55);
       light.strokeCircle(x, y, 19);
-      light.lineStyle(1, 0x7aaf91, 0.14);
+      light.lineStyle(1, mapTone.brassShadow, 0.14);
       light.strokeCircle(x, y, 25 + Math.sin(now * 1.6) * 3);
-      light.fillStyle(0xc0ffe0, 0.9);
+      light.fillStyle(mapTone.ivory, 0.9);
       light.fillCircle(x, y - 7, 2);
       const g = this.selectionGraphics;
       g.clear();
@@ -936,7 +959,7 @@ export function createFacility(
       if (state?.currentAction?.action === "move" && state.targetRoomId === state.currentAction.target) {
         const targetRoom = state.currentAction.target;
         const remaining = 1 - state.progress;
-        g.lineStyle(2, 0xcbd8a1, 0.8);
+        g.lineStyle(2, mapTone.brassLight, 0.8);
         const sections = 64;
         for (let i = 0; i < sections; i += 2) {
           const a = routePosition(state.roomId, targetRoom, state.progress + remaining * i / sections);
@@ -944,7 +967,7 @@ export function createFacility(
           g.lineBetween(a.x, a.y, b.x, b.y);
         }
         const destination = center(roomFor(targetRoom));
-        g.lineStyle(2, 0xd3dda8, 0.9);
+        g.lineStyle(2, mapTone.brassLight, 0.9);
         g.strokeCircle(destination.x, destination.y, 16);
         g.lineBetween(destination.x - 7, destination.y, destination.x + 7, destination.y);
         g.lineBetween(destination.x, destination.y - 7, destination.x, destination.y + 7);
@@ -952,13 +975,13 @@ export function createFacility(
       const selected = roomFor(selection);
       if (this.hoverRoom && this.hoverRoom !== selection) {
         const r = roomFor(this.hoverRoom);
-        g.fillStyle(0x83c5a0, 0.05);
+        g.fillStyle(mapTone.brass, 0.05);
         g.fillRect(r.x, r.y, r.w, r.h);
-        g.lineStyle(1, 0x9ac7a3, 0.35);
+        g.lineStyle(1, mapTone.brassLight, 0.35);
         g.strokeRect(r.x - 11, r.y - 11, r.w + 22, r.h + 22);
       }
       // Broken corner brackets are readable without flattening the floor.
-      g.lineStyle(1.5, 0xb9d5a4, 0.85);
+      g.lineStyle(1.5, mapTone.brass, 0.85);
       for (const [cx, cy, sx, sy] of [
         [selected.x - 13, selected.y - 13, 1, 1],
         [selected.x + selected.w + 13, selected.y - 13, -1, 1],
@@ -969,7 +992,7 @@ export function createFacility(
         g.lineBetween(cx!, cy!, cx!, cy! + sy! * 20);
       }
       // Current location carries a tiny tracking crosshair.
-      g.lineStyle(1, 0xc5ebc7, 0.7);
+      g.lineStyle(1, mapTone.ivory, 0.7);
       for (const [dx, dy] of [
         [-29, 0],
         [29, 0],
@@ -984,17 +1007,17 @@ export function createFacility(
           const r = roomFor(effect.roomId);
           const p = center(r);
           if (effect.type === "blackout") {
-            fx.fillStyle(0x010707, 0.81);
+            fx.fillStyle(mapTone.charcoal, 0.81);
             fx.fillRect(r.x, r.y, r.w, r.h);
             fx.lineStyle(1, 0x9b3d32, 0.6);
             fx.strokeRect(r.x + 4, r.y + 4, r.w - 8, r.h - 8);
           } else if (effect.type === "apparition") {
             const opacity = 0.22 + Math.sin(now * 6) * 0.12;
             for (let j = 0; j < 5; j++) {
-              fx.fillStyle(0xc1d5c8, opacity * 0.13);
+              fx.fillStyle(mapTone.ivory, opacity * 0.13);
               fx.fillEllipse(p.x + 45, p.y, 17 + j * 6, 47 + j * 7);
             }
-            fx.fillStyle(0xc4d5c7, opacity);
+            fx.fillStyle(mapTone.ivory, opacity);
             fx.fillCircle(p.x + 45, p.y - 20, 5);
             fx.fillTriangle(
               p.x + 45,
@@ -1009,7 +1032,7 @@ export function createFacility(
             for (let j = 0; j < 3; j++)
               fx.strokeCircle(p.x, p.y, 20 + ((now * 10 + j * 15) % 55));
           } else if (effect.type === "lock") {
-            fx.lineStyle(2, 0xcb6955, 0.85);
+            fx.lineStyle(2, mapTone.danger, 0.85);
             fx.strokeRect(r.x - 4, r.y - 4, r.w + 8, r.h + 8);
           }
         }
@@ -1023,9 +1046,9 @@ export function createFacility(
           lockLabel?.setText(state.roomId === r.id ? "SAM INSIDE\nEXIT BLOCKED" : "ENTRY BLOCKED");
           lockLabel?.setVisible(sealed);
           if (sealed) {
-            fx.fillStyle(0xd67459, 0.9);
+            fx.fillStyle(mapTone.danger, 0.9);
             fx.fillRoundedRect(r.x + r.w - 23, r.y + 11, 10, 9, 1);
-            fx.lineStyle(1.5, 0xd67459, 0.9);
+            fx.lineStyle(1.5, mapTone.danger, 0.9);
             fx.strokeCircle(r.x + r.w - 18, r.y + 10, 3);
           }
         }
@@ -1033,7 +1056,7 @@ export function createFacility(
       // Slow airborne motes are intentionally sparse.
       this.dust.clear();
       for (const d of this.dustParticles) {
-        this.dust.fillStyle(0xc3d3b8, 0.08 + Math.sin(now + d.x) * 0.04);
+        this.dust.fillStyle(mapTone.brassLight, 0.08 + Math.sin(now + d.x) * 0.04);
         this.dust.fillCircle(
           (d.x + now * 1.5) % W,
           (d.y + Math.sin(now * 0.2 + d.x) * 5) % H,
@@ -1047,7 +1070,7 @@ export function createFacility(
     parent,
     width: W,
     height: H,
-    backgroundColor: "#080e0f",
+    backgroundColor: "#0e0f0e",
     transparent: false,
     antialias: true,
     scene: FacilityScene,
