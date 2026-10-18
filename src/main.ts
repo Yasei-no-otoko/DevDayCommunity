@@ -1,3 +1,4 @@
+import { createGameAudio } from "./audio";
 import { createFacility } from "./facility";
 import {
   ROOMS,
@@ -92,7 +93,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <header class="header">
       <a class="brand" href="/" aria-label="BLACKSITE ホーム"><span class="brand-symbol">${svg("ghost", 24)}</span><span>BLACKSITE<small>THE ESCAPE EXPERIMENT</small></span></a>
       <div class="experiment-bar"><div class="timer"><span class="micro">残り時間</span><b id="timer">03:00</b></div><div class="small-stat"><span class="micro">干渉</span><b id="interventions">00</b></div><button class="start-button" id="start">${svg("play", 15)}<span>実験を開始</span></button><button class="icon-button" id="reset" aria-label="実験をリセット" title="リセット (R)">${svg("reset", 18)}</button></div>
-      <div class="header-right"><div class="controller-menu"><label for="mode">対戦モード</label><select id="mode"><option value="local">ローカル体験</option><option value="api">OpenAI 実API</option></select></div><button class="text-button" id="open-api">API詳細</button><button class="icon-button" id="audio" aria-label="環境音をオン" title="環境音">${svg("mute")}</button><button class="icon-button" id="help" aria-label="遊び方" title="遊び方">${svg("help")}</button><button class="text-button fullscreen-button" id="fullscreen" aria-label="ゲームを全画面表示" aria-pressed="false">⛶ <span>全画面</span></button></div>
+      <div class="header-right"><div class="controller-menu"><label for="mode">対戦モード</label><select id="mode"><option value="local">ローカル体験</option><option value="api">OpenAI 実API</option></select></div><button class="text-button" id="open-api">API詳細</button><button class="icon-button" id="audio" aria-label="音をオン" aria-pressed="false" title="音をオン">${svg("mute")}</button><button class="icon-button" id="help" aria-label="遊び方" title="遊び方">${svg("help")}</button><button class="text-button fullscreen-button" id="fullscreen" aria-label="ゲームを全画面表示" aria-pressed="false">⛶ <span>全画面</span></button></div>
     </header>
     <section class="briefing" aria-label="実験のルール"><span><b>あなたは怪異。</b> AIを閉じ込めろ。</span><span><b>勝利</b> 恐怖100 または180秒阻止</span><span><b>操作</b> 開始 → 部屋選択 → 1〜4で干渉</span><span class="briefing-loss">鍵・電源を確保したAIが脱出すると敗北</span></section>
     <main class="console" aria-label="施設監視コンソール">
@@ -105,7 +106,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <dialog id="log-dialog" aria-labelledby="log-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">EXPERIMENT / 007</div><h2 id="log-title">実験の全記録</h2><div id="full-log"></div></dialog>
     <dialog id="thought-dialog" aria-labelledby="thought-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">サム・アルトマン / SELECTED ACTION</div><h2 id="thought-title">選択された行動の説明</h2><p class="dialog-fine">実APIモードでは、Decisions APIが選択した候補にあらかじめ付けた説明です。サム・アルトマンの独白や内部思考ではありません。</p><p id="full-thought"></p><h3>Agents APIの脱出方針</h3><p id="full-plan">実APIモードで受信すると表示します。</p></dialog>
     <dialog id="result-dialog" aria-labelledby="result-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div id="result" class="result" role="region" aria-label="実験結果" aria-live="polite"></div></dialog>
-    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — 進路を遮断します。AIは迂回や解錠を試みます。</li><li><b>囁き・怪異</b> — 同じ部屋のAIの恐怖を高めます。</li></ol><p>恐怖が100、または制限時間180秒であなたの勝利。AIは深呼吸で恐怖を抑えるため、部屋とタイミングの選択が鍵です。</p><p>美少女キラー「ぬこぬこさん」はサムを追尾。サムは初遭遇まで彼女の位置を知りません。遭遇後は回避を試みます。ときどき現れるTiboは4つの干渉の使用間隔だけをリセットします。エネルギーと実験の進行は戻りません。</p><p>隔離病棟にはベッドの陰の隠れ場所があります。サムは初遭遇後、14秒隠れて追跡をやり過ごし、脱出の準備へ戻ります。再使用は42秒間隔。病棟に怪異を出すと隠れたサムを追い出せます。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
+    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — 進路を遮断します。AIは迂回や解錠を試みます。</li><li><b>囁き・怪異</b> — 同じ部屋のAIの恐怖を高めます。</li></ol><p>恐怖が100、または制限時間180秒であなたの勝利。AIは深呼吸で恐怖を抑えるため、部屋とタイミングの選択が鍵です。</p><p>美少女キラー「ぬこぬこさん」はサムを追尾。サムは初遭遇まで彼女の位置を知りません。遭遇後は回避を試みます。ときどき現れるTiboは4つの干渉の使用間隔だけをリセットします。エネルギーと実験の進行は戻りません。</p><p>隔離病棟にはベッドの陰の隠れ場所があります。サムは初遭遇後、14秒隠れて追跡をやり過ごし、脱出の準備へ戻ります。再使用は42秒間隔。病棟に怪異を出すと隠れたサムを追い出せます。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。<a href="/audio/CREDITS.txt" target="_blank" rel="noreferrer">音素材・ライセンス</a>。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
 
   const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
     root.querySelector<T>(`#${id}`)!;
@@ -118,6 +119,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     for (const other of dialogs) if (other.open) other.close();
     dialogOpeners.set(dialog, opener || (document.activeElement instanceof HTMLElement ? document.activeElement : $("start")));
     dialog.showModal();
+    syncAudio();
   }
   for (const dialog of dialogs) {
     listen(dialog, "close", () => {
@@ -141,11 +143,10 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let apiError = "";
   let plan = "";
   let lastLogKey = "";
-  let audio: AudioContext | undefined;
-  let drone: OscillatorNode | undefined;
-  let master: GainNode | undefined;
+  const gameAudio = createGameAudio({ onError: (message) => toast(message) });
   let soundOn = false;
-  let lastStatus: string = "waiting";
+  let soundLoading = false;
+  let soundRevision = 0;
   let apiPending = false;
   let liveConfigured = false;
   let authenticated: boolean | null = null;
@@ -250,46 +251,32 @@ export function mountBlacksite(root: HTMLElement): () => void {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => $("toast").classList.remove("visible"), 3600);
   }
-  function tone(type: string) {
-    if (!soundOn || !audio || !master) return;
-    const osc = audio.createOscillator(),
-      gain = audio.createGain();
-    osc.type = type === "lock" ? "square" : "sine";
-    osc.frequency.setValueAtTime(
-      type === "apparition" ? 190 : type === "blackout" ? 75 : 330,
-      audio.currentTime,
-    );
-    osc.frequency.exponentialRampToValueAtTime(32, audio.currentTime + 0.7);
-    gain.gain.setValueAtTime(0.09, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.8);
-    osc.connect(gain);
-    gain.connect(master);
-    osc.start();
-    osc.stop(audio.currentTime + 0.8);
+  function syncAudio() {
+    gameAudio.update(state, presentationReady() && !watchbackActive());
+  }
+  function renderAudioButton() {
+    const label = soundOn ? "音をオフ" : "音をオン";
+    $("audio").innerHTML = svg(soundOn ? "sound" : "mute");
+    $("audio").setAttribute("aria-label", soundLoading ? `${label}（読み込み中）` : label);
+    $("audio").setAttribute("aria-pressed", String(soundOn));
+    $("audio").setAttribute("aria-busy", String(soundLoading));
+    $("audio").title = soundLoading ? "音を読み込み中 · もう一度押すとオフ" : label;
+  }
+  async function setAudioEnabled(value: boolean) {
+    const revision = ++soundRevision;
+    soundOn = value;
+    soundLoading = soundOn;
+    const pending = gameAudio.setEnabled(soundOn);
+    renderAudioButton();
+    const ready = await pending;
+    if (disposed || revision !== soundRevision) return;
+    soundOn = ready;
+    soundLoading = false;
+    renderAudioButton();
+    syncAudio();
   }
   function toggleAudio() {
-    if (!audio) {
-      audio = new AudioContext();
-      master = audio.createGain();
-      master.gain.value = 0.19;
-      master.connect(audio.destination);
-      drone = audio.createOscillator();
-      drone.type = "sine";
-      drone.frequency.value = 43;
-      const g = audio.createGain();
-      g.gain.value = 0.28;
-      drone.connect(g);
-      g.connect(master);
-      drone.start();
-    }
-    soundOn = !soundOn;
-    if (soundOn) void audio.resume();
-    else void audio.suspend();
-    $("audio").innerHTML = svg(soundOn ? "sound" : "mute");
-    $("audio").setAttribute(
-      "aria-label",
-      soundOn ? "環境音をオフ" : "環境音をオン",
-    );
+    void setAudioEnabled(!soundOn);
   }
   function setText(id: string, value: string) {
     if ($(id).textContent !== value) $(id).textContent = value;
@@ -554,7 +541,6 @@ export function mountBlacksite(root: HTMLElement): () => void {
       }
       state.status = "running";
       state.controller = "local";
-      tone("start");
     } else {
       state.paused = !state.paused;
       apiError = "";
@@ -570,6 +556,10 @@ export function mountBlacksite(root: HTMLElement): () => void {
     render();
   }
   function reset() {
+    soundRevision++;
+    gameAudio.reset();
+    soundLoading = false;
+    renderAudioButton();
     for (const dialog of dialogs) if (dialog.open) dialog.close();
     generation++;
     closeSession();
@@ -598,10 +588,12 @@ export function mountBlacksite(root: HTMLElement): () => void {
     lastLatency = 0;
     lastResultKey = "";
     lastFeedback = "実験をリセットしました。追跡ONでサム・アルトマンを狙えます。";
-    lastStatus = "waiting";
     selectedRoom = "reception";
     lastLogKey = "";
     render();
+    // Preserve the user's sound preference, while replacing cancelled loading work.
+    // The fresh waiting state keeps playback silent until the next experiment starts.
+    if (soundOn) void setAudioEnabled(true);
   }
   function interferenceBlock(type: SabotageType): string {
     if (state.status !== "running") return state.status === "waiting" ? "実験を開始してください" : "実験は終了しました";
@@ -629,7 +621,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
         watchbackSeen = true;
         watchback = { record: { ...state.interventionHistory[0] }, phase: "queued", remaining: 1.7 };
       }
-      tone(type);
+      syncAudio();
+      gameAudio.playIntervention(type);
       const name = interventions.find((i) => i.type === type)!.name;
       const fearGain = Number((state.fear - before).toFixed(1));
       lastFeedback = `${roomName(selectedRoom)}に${name}。${flushed ? "サムを隠れ場所から追い出しました。" : stopped ? "進路を遮断！サムの移動を止めました。" : occupied || incoming ? `${fearGain ? `恐怖 +${fearGain}。` : ""}この部屋に干渉が続きます。` : "先回りして配置。サム・アルトマンが来ると効果を発揮します。"}`;
@@ -700,6 +693,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   }
   function render() {
     if (disposed) return;
+    syncAudio();
     if (following) selectedRoom = state.targetRoomId || state.roomId;
     const room = ROOMS.find((r) => r.id === selectedRoom)!;
     const running = state.status === "running";
@@ -798,10 +792,6 @@ export function mountBlacksite(root: HTMLElement): () => void {
         $("result").innerHTML = `<span class="eyebrow">EXPERIMENT COMPLETE</span><h2 id="result-title">${won ? "あなたの勝利" : "サム・アルトマンが脱出"}</h2><strong class="result-verdict">${won ? "封じ込め成功" : "あなたの敗北"}</strong><p>${reason}</p><dl class="result-stats"><div><dt>経過時間</dt><dd>${formatTime(Math.ceil(state.elapsed))}</dd></div><div><dt>干渉</dt><dd>${state.interventions}回</dd></div><div><dt>最終恐怖</dt><dd>${Math.round(state.fear)}/100</dd></div><div><dt>サム・アルトマンの確保物</dt><dd>鍵 ${state.keycard ? "取得済" : "未取得"} ／ 電源 ${state.power ? "復旧済" : "未復旧"}</dd></div></dl><p class="result-tip">${won ? "施設は、また静けさを取り戻した。次は別の干渉を試してみよう。" : "次は移動先を封鎖して時間を稼ごう。サム・アルトマンがいる部屋への囁きも有効。"}</p><button class="start-button" id="result-retry">もう一度挑戦 ${svg("arrow", 16)}</button>`;
         openDialog($<HTMLDialogElement>("result-dialog"), $("open-result"));
       }
-    }
-    if (state.status !== lastStatus) {
-      lastStatus = state.status;
-      if (ended) tone("apparition");
     }
     facility.update(state, selectedRoom);
   }
@@ -913,6 +903,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
       }
       tick(state, dt);
     }
+    syncAudio();
     if (now - lastRender > 80) {
       render();
       lastRender = now;
@@ -931,6 +922,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
   function dispose() {
     if (disposed) return;
     disposed = true;
+    soundRevision++;
+    gameAudio.dispose();
     generation++;
     cancelAnimationFrame(frameId);
     clearTimeout(toastTimer);
@@ -947,10 +940,6 @@ export function mountBlacksite(root: HTMLElement): () => void {
     tiboWasVisible = false;
     for (const dialog of dialogs) if (dialog.open) dialog.close();
     facility.destroy();
-    if (audio) {
-      drone?.stop();
-      void audio.close().catch(() => {});
-    }
     root.replaceChildren();
   }
   listen(window, "pagehide", dispose);
