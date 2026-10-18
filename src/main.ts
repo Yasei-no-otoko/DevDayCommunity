@@ -40,35 +40,30 @@ const interventions: {
   type: SabotageType;
   icon: string;
   name: string;
-  en: string;
   detail: string;
 }[] = [
   {
     type: "blackout",
     icon: "bolt",
     name: "停電",
-    en: "BLACKOUT",
-    detail: "探索・装置操作を遅くする · 14秒",
+    detail: "探索・操作を減速 · 14秒",
   },
   {
     type: "lock",
     icon: "lock",
     name: "扉を封鎖",
-    en: "LOCKDOWN",
-    detail: "進路を遮断し、移動を止める · 12秒",
+    detail: "進路を遮断・移動停止 · 12秒",
   },
   {
     type: "whisper",
     icon: "whisper",
     name: "囁き",
-    en: "WHISPER",
     detail: "恐怖 +8、気配を残す · 10秒",
   },
   {
     type: "apparition",
     icon: "ghost",
     name: "怪異を出現",
-    en: "MANIFEST",
     detail: "恐怖 +17、怪異を残す · 6秒",
   },
 ];
@@ -91,26 +86,47 @@ export function mountBlacksite(root: HTMLElement): () => void {
     target.addEventListener(type, listener as EventListener, { signal: events.signal });
   }
   root.innerHTML = `
-    <header class="header"><a class="brand" href="/" aria-label="BLACKSITE ホーム"><span class="brand-symbol">${svg("ghost", 23)}</span>BLACKSITE<span class="brand-divider"></span><span class="brand-sub">THE ESCAPE EXPERIMENT</span></a><div class="header-right"><span class="connection"><i></i><span id="connection">LOCAL SIMULATION</span></span><button class="icon-button" id="audio" aria-label="環境音をオン">${svg("mute")}</button><button class="icon-button" id="help" aria-label="遊び方">${svg("help")}</button></div></header>
-    <main><section class="intro"><div><div class="eyebrow"><span></span> EXPERIMENT 007 <b>/</b> CONTAINMENT PROTOCOL</div><h1>You are the <em>haunting.</em></h1><p>AIは脱出を目指す。あなたは、その場所に棲む存在。</p></div><div class="session-info"><span>ST. ORISON INSTITUTE</span><strong>03:14 <small>AM</small></strong><span>NO ONE LEAVES UNAFFECTED.</span></div></section>
-    <section class="quick-guide" aria-label="はじめての実験"><div><span class="guide-label">あなたは怪異</span><p>逃げるAI「ELIAS」を、施設に閉じ込めろ。</p></div><div><span class="guide-label">勝利条件</span><p>恐怖を100にするか、180秒間の脱出を阻止。</p></div><div><span class="guide-label">操作</span><p>① 実験を開始　② 部屋を選ぶ　③ 干渉する</p><span class="guide-note">ELIASが鍵・電源を確保して脱出すると、あなたの敗北。</span></div></section>
-    <section class="runtime-status" aria-label="実験の状態"><div class="runtime-copy"><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">サインイン不要ですぐに試せます</strong><p id="runtime-note">ルールに従う脱出者と対戦します。実APIはモードを切り替えて開始。</p><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">ChatGPTでサインインして実APIを使う ${svg("arrow", 14)}</a></div><details class="api-details" id="api-details"><summary>接続・判断の詳細</summary><p>方針生成：Agents API ／ 行動の選択：Decisions API。表示するのは返された方針と選択結果です。</p><dl><div><dt>動作</dt><dd id="detail-mode">ローカルルール</dd></div><div><dt>モデル</dt><dd id="detail-models">未取得</dd></div><div><dt>選択肢数</dt><dd id="detail-choices">—</dd></div><div><dt>API confidence</dt><dd id="detail-confidence">未受信（勝率ではありません）</dd></div><div><dt>応答時間</dt><dd id="detail-latency">—</dd></div><div><dt>Request ID</dt><dd id="detail-request">未受信</dd></div><div><dt>Decision ID</dt><dd id="detail-decision">未受信</dd></div></dl><p id="detail-error" class="detail-error"></p></details></section>
-    <section class="console"><div class="facility-panel"><div class="panel-heading"><div><span class="tiny-square"></span> FACILITY OVERVIEW <span class="subtle">/ B1</span></div><div class="camera-tag"><i></i> LIVE FEED <span>CAM_07</span></div></div><div class="map-area"><div class="map-coordinate">N <span>↑</span><br><small>35° 42′ 18″ N</small></div><div id="facility"></div><div class="map-grain"></div><div class="map-title"><span>RESTRICTED ACCESS</span><b>BASEMENT — LEVEL 01</b></div><div class="map-legend"><span><i class="agent-dot"></i> SUBJECT</span><span><i class="effect-dot"></i> INTERFERENCE</span><span>⌖ SELECT A ROOM</span></div><div id="result" class="result hidden" role="region" aria-label="実験結果" aria-live="polite"></div></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><span class="room-hint" id="room-hint">ELIASを自動追跡します</span></div><div class="experiment-bar"><div class="timer"><span class="micro">残り時間</span><b id="timer">03:00</b></div><div class="small-stat"><span class="micro">干渉回数</span><b id="interventions">00</b></div><div class="experiment-actions"><button class="icon-button" id="reset" aria-label="実験をリセット">${svg("reset", 17)}</button><button class="start-button" id="start">${svg("play", 15)}<span>実験を開始</span></button></div></div></div>
-    <aside class="control-panel"><section class="subject-panel"><div class="section-title"><span>SUBJECT MONITOR</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span>${svg("signal", 13)}</div><div><h2>ELIAS</h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">S—014</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="micro">${svg("signal", 12)} ELIASの行動</div><p id="thought">「ここは、どこだ。<br>……出口を探さないと。」</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section><section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><p id="target-summary" class="target-summary">対象：受付 · ELIASが在室</p><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 23)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}</strong><span class="sabotage-detail">${item.detail}</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span><span class="sabotage-bottom"><span>${item.en}</span><kbd>${i + 1}</kbd></span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p><p class="interference-note">追跡ONでELIASの現在地・移動先を狙えます。<br><span>先回りするなら部屋を手動選択。恐怖はELIASが在室すると上昇します。</span></p></section></aside></section>
-    <section class="event-console"><div class="log-heading"><span><i></i> ACTIVITY LOG</span><button class="text-button" id="toggle-log">ログを開く <span>↗</span></button></div><div id="activity-log"><div class="log-entry"><time>00:00</time><span class="log-tag system">SYSTEM</span><p>施設の監視システムに接続。実験の開始を待機しています。</p><span class="log-end">_</span></div></div></section>
-    <footer><span>BUILT WITH <a href="https://developers.openai.com/api/docs/guides/agents-api/overview" target="_blank" rel="noreferrer">Agents API</a><span class="footer-plus">+</span><a href="https://developers.openai.com/api/docs/guides/decisions" target="_blank" rel="noreferrer">Decisions API</a></span><div><label for="mode">対戦モード</label><select id="mode"><option value="local">ローカル体験</option><option value="api">OpenAI 実API</option></select><span class="footer-experiment">EXPERIMENT / 007</span></div></footer>
-    </main><dialog id="help-dialog"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2>出口を、与えるな。</h2><p>エージェント「ELIAS」は自ら判断し、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — 進路を遮断します。AIは迂回や解錠を試みます。</li><li><b>囁き・怪異</b> — 同じ部屋のAIの恐怖を高めます。</li></ol><p>恐怖が100、または制限時間180秒であなたの勝利。AIは深呼吸で恐怖を抑えるため、部屋とタイミングの選択が鍵です。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでELIASの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
+    <header class="header">
+      <a class="brand" href="/" aria-label="BLACKSITE ホーム"><span class="brand-symbol">${svg("ghost", 24)}</span><span>BLACKSITE<small>THE ESCAPE EXPERIMENT</small></span></a>
+      <div class="experiment-bar"><div class="timer"><span class="micro">残り時間</span><b id="timer">03:00</b></div><div class="small-stat"><span class="micro">干渉</span><b id="interventions">00</b></div><button class="start-button" id="start">${svg("play", 15)}<span>実験を開始</span></button><button class="icon-button" id="reset" aria-label="実験をリセット" title="リセット (R)">${svg("reset", 18)}</button></div>
+      <div class="header-right"><div class="controller-menu"><label for="mode">対戦モード</label><select id="mode"><option value="local">ローカル体験</option><option value="api">OpenAI 実API</option></select></div><button class="text-button" id="open-api">API詳細</button><button class="icon-button" id="audio" aria-label="環境音をオン" title="環境音">${svg("mute")}</button><button class="icon-button" id="help" aria-label="遊び方" title="遊び方">${svg("help")}</button><button class="text-button fullscreen-button" id="fullscreen" aria-label="ゲームを全画面表示" aria-pressed="false">⛶ <span>全画面</span></button></div>
+    </header>
+    <section class="briefing" aria-label="実験のルール"><span><b>あなたは怪異。</b> AIを閉じ込めろ。</span><span><b>勝利</b> 恐怖100 または180秒阻止</span><span><b>操作</b> 開始 → 部屋選択 → 1〜4で干渉</span><span class="briefing-loss">鍵・電源を確保したAIが脱出すると敗北</span></section>
+    <main class="console" aria-label="施設監視コンソール">
+      <section class="subject-panel"><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span>${svg("signal", 13)}</div><div><h2>ELIAS</h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">S—014</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} ELIASの判断</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">「ここは、どこだ。<br>……出口を探さないと。」</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
+      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div class="map-coordinate">N ↑</div><div class="map-legend"><span><i class="agent-dot"></i> ELIAS</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><span class="room-hint" id="room-hint">ELIASを自動追跡</span></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
+      <section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><p id="target-summary" class="target-summary">対象：受付 · ELIASが在室</p><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 21)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}<kbd>${i + 1}</kbd></strong><span class="sabotage-detail">${item.detail}</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p></section>
+    </main>
+    <section class="event-console" aria-label="最新の記録"><div class="log-heading"><span><i></i> ACTIVITY LOG</span><button class="text-button" id="toggle-log">全記録 ↗</button></div><div id="activity-log"></div></section>
+    <dialog id="api-dialog" aria-labelledby="api-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONNECTION / DECISION</div><h2 id="api-title">接続・判断の詳細</h2><p id="runtime-note"></p><div class="api-details" id="api-details"><p>方針生成：Agents API ／ 行動の選択：Decisions API。表示するのは返された方針と選択結果です。</p><dl><div><dt>動作</dt><dd id="detail-mode">ローカルルール</dd></div><div><dt>モデル</dt><dd id="detail-models">未取得</dd></div><div><dt>選択肢数</dt><dd id="detail-choices">—</dd></div><div><dt>API confidence</dt><dd id="detail-confidence">未受信（勝率ではありません）</dd></div><div><dt>応答時間</dt><dd id="detail-latency">—</dd></div><div><dt>Request ID</dt><dd id="detail-request">未受信</dd></div><div><dt>Decision ID</dt><dd id="detail-decision">未受信</dd></div></dl><p id="detail-error" class="detail-error"></p></div><p class="dialog-fine">BUILT WITH <a href="https://developers.openai.com/api/docs/guides/agents-api/overview" target="_blank" rel="noreferrer">Agents API</a> + <a href="https://developers.openai.com/api/docs/guides/decisions" target="_blank" rel="noreferrer">Decisions API</a> · EXPERIMENT / 007</p></dialog>
+    <dialog id="log-dialog" aria-labelledby="log-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">EXPERIMENT / 007</div><h2 id="log-title">実験の全記録</h2><div id="full-log"></div></dialog>
+    <dialog id="thought-dialog" aria-labelledby="thought-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">ELIAS / REASONING</div><h2 id="thought-title">ELIASの現在の判断</h2><p id="full-thought"></p><h3>Agents APIの脱出方針</h3><p id="full-plan">実APIモードで受信すると表示します。</p></dialog>
+    <dialog id="result-dialog" aria-labelledby="result-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div id="result" class="result" role="region" aria-label="実験結果" aria-live="polite"></div></dialog>
+    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>エージェント「ELIAS」は自ら判断し、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — 進路を遮断します。AIは迂回や解錠を試みます。</li><li><b>囁き・怪異</b> — 同じ部屋のAIの恐怖を高めます。</li></ol><p>恐怖が100、または制限時間180秒であなたの勝利。AIは深呼吸で恐怖を抑えるため、部屋とタイミングの選択が鍵です。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでELIASの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
 
   const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
     root.querySelector<T>(`#${id}`)!;
-  const controllerMenu = document.createElement("div");
-  controllerMenu.className = "controller-menu";
-  controllerMenu.append(root.querySelector('label[for="mode"]')!, $("mode"));
-  root.querySelector(".header-right")!.prepend(controllerMenu);
-  const experimentBar = $("timer").closest(".experiment-bar")!;
-  root
-    .querySelector(".facility-panel")!
-    .insertBefore(experimentBar, root.querySelector(".map-area"));
+  const dialogs = Array.from(root.querySelectorAll<HTMLDialogElement>("dialog"));
+  const dialogOpeners = new WeakMap<HTMLDialogElement, HTMLElement>();
+  function openDialog(dialog: HTMLDialogElement, opener?: HTMLElement) {
+    if (disposed || dialog.open) return;
+    if (state.status === "running") state.paused = true;
+    for (const other of dialogs) if (other.open) other.close();
+    dialogOpeners.set(dialog, opener || (document.activeElement instanceof HTMLElement ? document.activeElement : $("start")));
+    dialog.showModal();
+  }
+  for (const dialog of dialogs) {
+    listen(dialog, "close", () => {
+      if (!disposed) dialogOpeners.get(dialog)?.focus();
+    });
+    listen(dialog, "click", (event) => {
+      if (event.target === dialog) {
+        const bounds = dialog.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+      }
+    });
+    dialog.querySelectorAll<HTMLElement>("[data-close-dialog]").forEach((button) => listen(button, "click", () => dialog.close()));
+  }
   let state = createState();
   let selectedRoom: RoomId = "reception";
   let following = true;
@@ -120,7 +136,6 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let apiError = "";
   let plan = "";
   let lastLogKey = "";
-  let expandedLog = false;
   let audio: AudioContext | undefined;
   let drone: OscillatorNode | undefined;
   let master: GainNode | undefined;
@@ -462,6 +477,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     render();
   }
   function reset() {
+    for (const dialog of dialogs) if (dialog.open) dialog.close();
     generation++;
     closeSession();
     sessionId = "";
@@ -594,6 +610,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
       : apiError
         ? "通信を一時停止しました。上の接続状態を確認してください。"
         : state.currentAction?.reason || state.decisions[0]?.reason || "「ここは、どこだ。……出口を探さないと。」");
+    setText("full-thought", $("thought").textContent || "判断を待っています。");
+    setText("full-plan", plan || "実APIモードで脱出方針を受信すると表示します。");
     $("action-progress").style.width = `${state.progress * 100}%`;
     setText("action-label", state.thinking
       ? "API 応答待ち"
@@ -629,30 +647,25 @@ export function mountBlacksite(root: HTMLElement): () => void {
       button.title = blocked || interventions.find((item) => item.type === type)!.detail;
     });
     renderRuntime();
-    const logs = state.decisions.slice(0, expandedLog ? 10 : 2);
-    const logKey = JSON.stringify(logs) + expandedLog;
-    if (logs.length && lastLogKey !== logKey) {
+    const logs = state.decisions;
+    const logKey = JSON.stringify(logs);
+    if (lastLogKey !== logKey) {
       lastLogKey = logKey;
-      $("activity-log").innerHTML = logs
-        .map(
-          (l) =>
-            `<div class="log-entry"><time>${formatTime(l.time)}</time><span class="log-tag ${l.source}">${l.source === "api" ? "OPENAI" : l.source === "system" ? (l.action === "wait" ? "ENTITY" : "FACILITY") : "LOCAL"}</span><p>${escape(l.reason)}</p><span class="log-end">${l.source === "system" ? "↳" : "↗"}</span></div>`,
-        )
-        .join("");
-    }
-    if (!logs.length) {
-      $("activity-log").innerHTML =
-        '<div class="log-entry"><time>00:00</time><span class="log-tag system">SYSTEM</span><p>施設の監視システムに接続。実験の開始を待機しています。</p><span class="log-end">_</span></div>';
+      const entries = logs.map((l) => `<div class="log-entry"><time>${formatTime(l.time)}</time><span class="log-tag ${l.source}">${l.source === "api" ? "OPENAI" : l.source === "system" ? (l.action === "wait" ? "ENTITY" : "FACILITY") : "LOCAL"}</span><p>${escape(l.reason)}</p></div>`);
+      const waiting = '<div class="log-entry"><time>00:00</time><span class="log-tag system">SYSTEM</span><p>施設の監視システムに接続。実験の開始を待機しています。</p></div>';
+      $("activity-log").innerHTML = entries[0] || waiting;
+      $("full-log").innerHTML = entries.join("") || waiting;
     }
     const ended = state.status === "escaped" || state.status === "contained";
-    $("result").classList.toggle("hidden", !ended);
+    $("open-result").classList.toggle("hidden", !ended);
     if (ended) {
       const resultKey = `${state.status}:${state.elapsed}:${state.interventions}`;
       if (resultKey !== lastResultKey) {
         lastResultKey = resultKey;
         const won = state.status === "contained";
         const reason = won ? state.fear >= 100 ? "恐怖が100に到達。ELIASは脱出を断念した。" : "180秒の脱出猶予が終了。施設への封じ込めに成功した。" : "ELIASは鍵と電源を確保し、避難口を解錠した。";
-        $("result").innerHTML = `<span class="eyebrow">EXPERIMENT COMPLETE</span><h2>${won ? "あなたの勝利" : "ELIASが脱出"}</h2><strong class="result-verdict">${won ? "封じ込め成功" : "あなたの敗北"}</strong><p>${reason}</p><dl class="result-stats"><div><dt>経過時間</dt><dd>${formatTime(Math.ceil(state.elapsed))}</dd></div><div><dt>干渉</dt><dd>${state.interventions}回</dd></div><div><dt>最終恐怖</dt><dd>${Math.round(state.fear)}/100</dd></div><div><dt>ELIASの確保物</dt><dd>鍵 ${state.keycard ? "取得済" : "未取得"} ／ 電源 ${state.power ? "復旧済" : "未復旧"}</dd></div></dl><p class="result-tip">${won ? "施設は、また静けさを取り戻した。次は別の干渉を試してみよう。" : "次は移動先を封鎖して時間を稼ごう。ELIASがいる部屋への囁きも有効。"}</p><button class="start-button" id="result-retry">もう一度挑戦 ${svg("arrow", 16)}</button>`;
+        $("result").innerHTML = `<span class="eyebrow">EXPERIMENT COMPLETE</span><h2 id="result-title">${won ? "あなたの勝利" : "ELIASが脱出"}</h2><strong class="result-verdict">${won ? "封じ込め成功" : "あなたの敗北"}</strong><p>${reason}</p><dl class="result-stats"><div><dt>経過時間</dt><dd>${formatTime(Math.ceil(state.elapsed))}</dd></div><div><dt>干渉</dt><dd>${state.interventions}回</dd></div><div><dt>最終恐怖</dt><dd>${Math.round(state.fear)}/100</dd></div><div><dt>ELIASの確保物</dt><dd>鍵 ${state.keycard ? "取得済" : "未取得"} ／ 電源 ${state.power ? "復旧済" : "未復旧"}</dd></div></dl><p class="result-tip">${won ? "施設は、また静けさを取り戻した。次は別の干渉を試してみよう。" : "次は移動先を封鎖して時間を稼ごう。ELIASがいる部屋への囁きも有効。"}</p><button class="start-button" id="result-retry">もう一度挑戦 ${svg("arrow", 16)}</button>`;
+        openDialog($<HTMLDialogElement>("result-dialog"), $("open-result"));
       }
     }
     if (state.status !== lastStatus) {
@@ -683,25 +696,30 @@ export function mountBlacksite(root: HTMLElement): () => void {
     }
   });
   const help = $<HTMLDialogElement>("help-dialog");
-  listen($("help"), "click", () => {
-    if (state.status === "running") state.paused = true;
-    help.showModal();
-    render();
-  });
+  listen($("help"), "click", () => { openDialog(help, $("help")); render(); });
   listen($("close-help"), "click", () => help.close());
   listen($("understood"), "click", () => help.close());
-  listen(help, "click", (event) => {
-    if (event.target === help) help.close();
+  const dialogButtons = [["open-api", "api-dialog"], ["toggle-log", "log-dialog"], ["open-thought", "thought-dialog"], ["open-result", "result-dialog"]];
+  for (const [buttonId, dialogId] of dialogButtons) {
+    listen($(buttonId), "click", () => { openDialog($<HTMLDialogElement>(dialogId), $(buttonId)); render(); });
+  }
+  function renderFullscreen() {
+    if (disposed) return;
+    const active = document.fullscreenElement === root;
+    $("fullscreen").setAttribute("aria-pressed", String(active));
+    $("fullscreen").setAttribute("aria-label", active ? "全画面表示を終了" : "ゲームを全画面表示");
+    $("fullscreen").querySelector("span")!.textContent = active ? "解除" : "全画面";
+  }
+  listen($("fullscreen"), "click", () => {
+    if (document.fullscreenElement === root) {
+      void document.exitFullscreen().catch(() => { if (!disposed) toast("全画面表示を終了できませんでした。Escキーでも解除できます。"); });
+    } else if (typeof root.requestFullscreen === "function" && document.fullscreenEnabled !== false) {
+      void root.requestFullscreen().catch(() => { if (!disposed) toast("全画面表示を開始できませんでした。ブラウザの全画面表示も利用できます。"); });
+    } else toast("このブラウザはゲームだけの全画面表示に対応していません。ブラウザの表示メニューを利用してください。");
   });
-  listen($("toggle-log"), "click", () => {
-    expandedLog = !expandedLog;
-    $("toggle-log").innerHTML = expandedLog
-      ? "ログを閉じる <span>↙</span>"
-      : "ログを開く <span>↗</span>";
-    render();
-  });
+  listen(document, "fullscreenchange", renderFullscreen);
   listen(document, "keydown", (event) => {
-    if (help.open || event.repeat || (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.closest("input, textarea, select, button, a, summary")))) return;
+    if (dialogs.some((dialog) => dialog.open) || event.repeat || (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.closest("input, textarea, select, button, a, summary")))) return;
     if (event.code === "Space") {
       event.preventDefault();
       startPause();
@@ -764,11 +782,12 @@ export function mountBlacksite(root: HTMLElement): () => void {
     cancelAnimationFrame(frameId);
     clearTimeout(toastTimer);
     events.abort();
+    if (document.fullscreenElement === root) void document.exitFullscreen().catch(() => {});
     closeSession();
     sessionId = "";
     sessionToken = "";
     pendingDecision = null;
-    if (help.open) help.close();
+    for (const dialog of dialogs) if (dialog.open) dialog.close();
     facility.destroy();
     if (audio) {
       drone?.stop();
