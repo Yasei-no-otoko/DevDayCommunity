@@ -39,6 +39,7 @@ test("status reports runtime configuration and security response headers", async
   const ready = await invoke(handler);
   assert.equal(ready.status, 200);
   assert.equal(ready.json.configured, true);
+  assert.equal(ready.json.authenticated, true);
   assert.equal(ready.json.mode, "live");
   assert.deepEqual(ready.json.models, { agents: "gpt-6-astra", decisions: "gpt-6-luna" });
   assert.equal(ready.response.headers.get("cache-control"), "no-store");
@@ -50,10 +51,21 @@ test("status reports runtime configuration and security response headers", async
   assert.equal(missing.calls.length, 0);
 });
 
-test("every API route requires the platform identity, ignoring client body identity", async () => {
+test("anonymous status permits local play without exposing runtime configuration", async () => {
+  for (const options of [{}, { apiKey: undefined }]) {
+    const { handler, calls } = fixture(options);
+    const result = await invoke(handler, { user: null });
+    assert.equal(result.status, 200);
+    assert.equal(result.json.authenticated, false);
+    assert.equal(result.json.configured, false);
+    assert.equal(result.json.mode, "sign-in-required");
+    assert.equal(calls.length, 0);
+  }
+});
+
+test("live API routes require the platform identity, ignoring client body identity", async () => {
   const { handler, calls } = fixture();
   for (const request of [
-    {},
     { path: "/api/session", method: "POST", body: { owner: "user-one" } },
     { path: "/api/decision", method: "POST", body: { owner: "user-one" } },
     { path: "/api/session/sess_test", method: "DELETE" },

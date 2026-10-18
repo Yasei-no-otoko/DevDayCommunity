@@ -28,7 +28,7 @@ export const ROOMS: Room[] = [
     y: 430,
     w: 220,
     h: 170,
-    clue: "A staff note points to the archive. Find a security keycard.",
+    clue: "職員のメモが資料室を示している。警備用キーカードを探そう。",
   },
   {
     id: "corridor",
@@ -38,7 +38,7 @@ export const ROOMS: Room[] = [
     y: 370,
     w: 260,
     h: 150,
-    clue: "The exit panel needs a keycard and emergency power.",
+    clue: "出口の制御盤にはキーカードと非常電源が必要だ。",
   },
   {
     id: "ward",
@@ -48,7 +48,7 @@ export const ROOMS: Room[] = [
     y: 160,
     w: 220,
     h: 200,
-    clue: "Archive access is possible through the ward or central hall.",
+    clue: "隔離病棟か中央ホールを通れば、資料室へ行ける。",
   },
   {
     id: "archive",
@@ -58,7 +58,7 @@ export const ROOMS: Room[] = [
     y: 130,
     w: 210,
     h: 170,
-    clue: "A security keycard is hidden in the records cabinet.",
+    clue: "記録保管庫に警備用キーカードが隠されている。",
   },
   {
     id: "laboratory",
@@ -68,7 +68,7 @@ export const ROOMS: Room[] = [
     y: 130,
     w: 210,
     h: 200,
-    clue: "The laboratory service door leads to the emergency generator.",
+    clue: "実験室の通用口は非常用発電機へ続いている。",
   },
   {
     id: "generator",
@@ -78,7 +78,7 @@ export const ROOMS: Room[] = [
     y: 410,
     w: 210,
     h: 170,
-    clue: "Restore the emergency generator to power the exit lock.",
+    clue: "非常用発電機を復旧すれば、出口の錠に電源を送れる。",
   },
   {
     id: "exit",
@@ -88,7 +88,7 @@ export const ROOMS: Room[] = [
     y: 565,
     w: 150,
     h: 75,
-    clue: "The final security door can be opened with power and a keycard.",
+    clue: "電源とキーカードがそろえば、最後の警備扉を開けられる。",
   },
 ];
 export const CONNECTIONS: [RoomId, RoomId][] = [
@@ -116,6 +116,8 @@ export interface Decision {
   reason: string;
 }
 export interface Action extends Decision {
+  /** Seal overrides never substitute for the final keycard authentication. */
+  opensExit?: boolean;
   elapsed: number;
   duration: number;
 }
@@ -252,50 +254,51 @@ export function chooseLocalAction(state: GameState): Decision {
     return {
       action: "wait",
       target: state.roomId,
-      reason: "Stress is critical. Ground myself and control my breathing.",
+      reason: "恐怖が強すぎる。いったん立ち止まり、呼吸を整えよう。",
     };
   if (locked(state, state.roomId))
     return {
       action: "unlock",
       target: state.roomId,
-      reason: "The door was sealed. Override the local locking mechanism.",
+      reason: "扉を封鎖された。ここのロックを解除しよう。",
     };
   if (!state.keycard && state.roomId === "archive")
     return {
       action: "search",
       target: "archive",
-      reason: "Search the records cabinet for a staff keycard.",
+      reason: "記録保管庫を調べて、職員のキーカードを探そう。",
     };
   if (state.keycard && !state.power && state.roomId === "generator")
     return {
       action: "restore",
       target: "generator",
-      reason: "Reconnect emergency power so the exit can open.",
+      reason: "非常電源を復旧して、出口の扉に電源を送ろう。",
     };
   if (state.keycard && state.power && state.roomId === "exit")
     return {
       action: "unlock",
       target: "exit",
-      reason: "Authenticate with the keycard and open the evacuation door.",
+      reason: "キーカードで認証し、避難口を開けよう。",
     };
   const goal: RoomId = !state.keycard
     ? "archive"
     : !state.power
       ? "generator"
       : "exit";
+  const goalName = { archive: "資料室", generator: "発電機", exit: "避難口" }[goal];
   const next = nextRoom(state, goal);
   if (locked(state, next))
     return {
       action: "unlock",
       target: next,
-      reason: "The route is blocked. Override the seal before continuing.",
+      reason: "進路が封鎖されている。先に扉のロックを解除しよう。",
     };
   return {
     action: "move",
     target: next,
     reason: affected(state, next)
-      ? `Continue toward ${goal}; stay alert to interference.`
-      : `Take the safest available route to ${goal}.`,
+      ? `${goalName}へ進もう。異変には警戒が必要だ。`
+      : `安全な経路を選んで${goalName}へ向かおう。`,
   };
 }
 /** Accept only bounded, legal actions. Untrusted API responses pass through the same validator. */
@@ -324,9 +327,10 @@ export function applyDecision(
   const decision: Decision = {
     action: candidate.action!,
     target: candidate.target!,
-    reason: candidate.reason.trim().slice(0, 240) || "Proceed cautiously.",
+    reason: candidate.reason.trim().slice(0, 240) || "慎重に進もう。",
   };
   let duration = 0;
+  let opensExit = false;
   switch (decision.action) {
     case "move":
       if (
@@ -361,9 +365,10 @@ export function applyDecision(
         state.keycard &&
         state.power &&
         !locked(state, "exit")
-      )
+      ) {
         duration = 5;
-      else if (
+        opensExit = true;
+      } else if (
         locked(state, decision.target) &&
         (decision.target === state.roomId ||
           adjacent(state.roomId, decision.target))
@@ -376,7 +381,7 @@ export function applyDecision(
       duration = 6;
       break;
   }
-  state.currentAction = { ...decision, elapsed: 0, duration };
+  state.currentAction = { ...decision, elapsed: 0, duration, opensExit };
   state.targetRoomId = decision.action === "move" ? decision.target : null;
   state.progress = 0;
   log(state, decision, source);
@@ -398,7 +403,7 @@ function finishAction(state: GameState): void {
       {
         ...action,
         reason:
-          "Security keycard recovered. The generator is the next objective.",
+          "警備用キーカードを確保した。次は発電機へ向かおう。",
       },
       "system",
     );
@@ -409,7 +414,7 @@ function finishAction(state: GameState): void {
       state,
       {
         ...action,
-        reason: "Emergency power restored. Reach the evacuation door.",
+        reason: "非常電源が復旧した。避難口へ向かおう。",
       },
       "system",
     );
@@ -419,9 +424,15 @@ function finishAction(state: GameState): void {
       state.effects = state.effects.filter(
         (e) => !(e.type === "lock" && e.roomId === action.target),
       );
-    } else if (state.roomId === "exit" && state.keycard && state.power) {
+    } else if (
+      action.opensExit &&
+      action.target === "exit" &&
+      state.roomId === "exit" &&
+      state.keycard &&
+      state.power
+    ) {
       state.status = "escaped";
-      state.outcome = "The subject escaped. Containment has failed.";
+      state.outcome = "被験者が脱出した。封じ込め失敗。";
     }
   } else if (action.action === "wait")
     state.fear = Math.max(0, state.fear - 21);
@@ -444,6 +455,8 @@ export function sabotage(
   const rule = SABOTAGE[type];
   if (state.energy < rule.cost || state.cooldowns[type] > state.elapsed)
     return false;
+  const affectsSubject =
+    targetRoom === state.roomId || targetRoom === state.targetRoomId;
   state.energy -= rule.cost;
   state.cooldowns[type] = state.elapsed + rule.cooldown;
   state.interventions += 1;
@@ -467,20 +480,20 @@ export function sabotage(
       state.progress = 0;
     }
   }
-  if (targetRoom === state.roomId || targetRoom === state.targetRoomId)
+  if (affectsSubject)
     state.fear = Math.min(99, state.fear + rule.fear);
   log(
     state,
     {
       action: "wait",
       target: targetRoom,
-      reason: `INTERFERENCE: ${type.toUpperCase()} in ${ROOMS.find((r) => r.id === targetRoom)!.name}.`,
+      reason: `${{ blackout: "停電", lock: "扉の封鎖", whisper: "囁き", apparition: "幻影" }[type]}が発生：${ROOMS.find((r) => r.id === targetRoom)!.name}。`,
     },
     "system",
   );
   return true;
 }
-/** Real-time updates subdivide long frames to keep outcomes independent of rendering frame rate. */
+/** Split at rule boundaries so frame size cannot discard action time or effect duration. */
 export function tick(state: GameState, dt: number): void {
   if (
     state.status !== "running" ||
@@ -491,63 +504,76 @@ export function tick(state: GameState, dt: number): void {
     return;
   let remaining = Math.min(dt, 360);
   while (remaining > 0.000001 && state.status === "running") {
-    const step = Math.min(remaining, 0.1, state.timeRemaining);
+    if (!state.currentAction && state.controller === "local" && !state.thinking)
+      applyDecision(state, chooseLocalAction(state));
+    const dark = affected(state, state.roomId, "blackout");
+    const haunted = affected(state, state.roomId, "apparition");
+    const whispers = affected(state, state.roomId, "whisper");
+    const calming = state.currentAction?.action === "wait";
+    const speed =
+      dark &&
+      state.currentAction &&
+      ["search", "restore", "unlock"].includes(state.currentAction.action)
+        ? 0.6
+        : 1;
+    const fearRate = dark
+      ? 1.5
+      : haunted
+        ? 1.15
+        : whispers
+          ? 0.8
+          : calming
+            ? -0.4
+            : 0.12;
+    const nextExpiry = Math.min(
+      ...state.effects
+        .map((effect) => effect.expiresAt - state.elapsed)
+        .filter((time) => time > 1e-8),
+      ...Object.values(state.locks)
+        .map((expiresAt) => expiresAt! - state.elapsed)
+        .filter((time) => time > 1e-8),
+    );
+    const step = Math.min(
+      remaining,
+      0.1,
+      state.timeRemaining,
+      nextExpiry,
+      state.currentAction
+        ? (state.currentAction.duration - state.currentAction.elapsed) / speed
+        : Infinity,
+      fearRate > 0 ? (100 - state.fear) / fearRate : Infinity,
+    );
     remaining -= step;
     state.elapsed += step;
     if (state.elapsed >= 180 - 1e-8) state.elapsed = 180;
     state.timeRemaining = Math.max(0, 180 - state.elapsed);
     state.energy = Math.min(100, state.energy + step * 1.45);
-    state.effects = state.effects.filter((e) => e.expiresAt > state.elapsed);
+    state.effects = state.effects.filter((e) => e.expiresAt > state.elapsed + 1e-8);
     for (const room of ROOMS)
-      if ((state.locks[room.id] ?? Infinity) <= state.elapsed)
+      if ((state.locks[room.id] ?? Infinity) <= state.elapsed + 1e-8)
         delete state.locks[room.id];
-    const dark = affected(state, state.roomId, "blackout");
-    const haunted = affected(state, state.roomId, "apparition");
-    const whispers = affected(state, state.roomId, "whisper");
-    const calming = state.currentAction?.action === "wait";
-    state.fear = Math.max(
-      0,
-      Math.min(
-        100,
-        state.fear +
-          step *
-            (dark
-              ? 1.5
-              : haunted
-                ? 1.15
-                : whispers
-                  ? 0.8
-                  : calming
-                    ? -0.4
-                    : 0.12),
-      ),
-    );
-    if (state.fear >= 100 || state.timeRemaining <= 0) {
+    state.fear = Math.max(0, Math.min(100, state.fear + step * fearRate));
+    if (state.fear >= 100 - 1e-8 || state.timeRemaining <= 0) {
+      if (state.fear >= 100 - 1e-8) state.fear = 100;
       state.status = "contained";
       state.outcome =
         state.fear >= 100
-          ? "The subject broke under pressure. Containment successful."
-          : "The evacuation window closed. Containment successful.";
+          ? "被験者は恐怖に屈した。封じ込め成功。"
+          : "避難の制限時間を過ぎた。封じ込め成功。";
       state.currentAction = null;
       state.targetRoomId = null;
       state.progress = 0;
       state.thinking = false;
       break;
     }
-    if (!state.currentAction && state.controller === "local" && !state.thinking)
-      applyDecision(state, chooseLocalAction(state));
     if (state.currentAction) {
-      const speed =
-        dark &&
-        ["search", "restore", "unlock"].includes(state.currentAction.action)
-          ? 0.6
-          : 1;
       state.currentAction.elapsed += step * speed;
       state.progress = Math.min(
         1,
         state.currentAction.elapsed / state.currentAction.duration,
       );
-      if (state.progress >= 1) finishAction(state);
+      if (state.currentAction.duration - state.currentAction.elapsed <= 1e-8)
+        finishAction(state);
     }
   }
 }

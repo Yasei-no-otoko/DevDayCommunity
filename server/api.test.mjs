@@ -162,6 +162,36 @@ test("Decisions rejects a model choice outside the server-provided options", asy
   );
 });
 
+test("Decisions rejects missing, malformed, or ambiguous action answers", async () => {
+  for (const payload of [
+    null,
+    { answers: {} },
+    { answers: [null] },
+    { answers: [{ type: "choice", name: "unrelated", choice: "left" }] },
+    { answers: [{ type: "choice", choice: "left" }] },
+    { answers: [
+      { type: "choice", name: "action", choice: "left" },
+      { type: "choice", name: "action", choice: "right" },
+    ] },
+  ]) {
+    const adapter = createOpenAIAdapter({
+      apiKey: "test-key",
+      fetchImpl: async () => Response.json(payload),
+    });
+    await assert.rejects(
+      adapter.decide({
+        sessionId: "sess_1",
+        snapshot: {},
+        allowedDecisions: [
+          { id: "left", label: "Left", description: "Left hall" },
+          { id: "right", label: "Right", description: "Right hall" },
+        ],
+      }),
+      (error) => error instanceof OpenAIStreamError && /did not return an action choice/.test(error.message),
+    );
+  }
+});
+
 test("Agents ignores completed item events and idle state without a completed root turn", async () => {
   const adapter = createOpenAIAdapter({
     apiKey: "test-key",
@@ -280,4 +310,71 @@ test("upstream errors retain status and request ID without hiding the failure", 
       error.requestId === "req_forbidden" &&
       /api.agents.write/.test(error.message),
   );
+});
+
+test("Agents keeps root session identity and narrative when a helper emits output", async () => {
+  const adapter = createOpenAIAdapter({
+    apiKey: "test-key",
+    fetchImpl: async () => sseResponse([
+      { type: "agent.session.created", session_id: "sess_root" },
+      { type: "agent.session.turn.output_text.done", item_id: "root_text", text: "出口を探そう。" },
+      { type: "agent.session.turn.completed" },
+      {
+        type: "agent.session.turn.completed",
+        session_id: "sess_helper",
+        subagent_id: "helper",
+        output_text: "内部の補助情報",
+      },
+    ]),
+  });
+  const result = await adapter.createSession({ facilityDescription: "Facility", strategicPlan: "Escape" });
+  assert.equal(result.sessionId, "sess_root");
+  assert.equal(result.outputText, "出口を探そう。");
+});
+
+test("Agents completed snapshots replace each content part without duplicating deltas", async () => {
+  const adapter = createOpenAIAdapter({
+    apiKey: "test-key",
+    fetchImpl: async () => sseResponse([
+      { type: "agent.session.created", session_id: "sess_parts" },
+      { type: "agent.session.turn.output_text.delta", item_id: "msg", content_index: 0, delta: "照明が消えた。" },
+      { type: "agent.session.turn.output_text.delta", item_id: "msg", content_index: 1, delta: "扉を調べよう。" },
+      {
+        type: "agent.session.item.completed",
+        item: {
+          id: "msg", type: "message", content: [
+            { type: "output_text", text: "照明が消えた。" },
+            { type: "output_text", text: "扉を調べよう。" },
+          ],
+        },
+      },
+      { type: "agent.session.turn.completed" },
+    ]),
+  });
+  const result = await adapter.createSession({ facilityDescription: "Facility", strategicPlan: "Escape" });
+  assert.equal(result.outputText, "照明が消えた。\n扉を調べよう。");
+});
+
+test("Agents rejects environment and stream errors even after root turn completion", async () => {
+  for (const completed of [false, true]) {
+    for (const failure of [
+      { type: "agent.session.environment.failed", error: { message: "Environment failed." } },
+      { type: "error", message: "Stream failed." },
+    ]) {
+      const adapter = createOpenAIAdapter({
+        apiKey: "test-key",
+        fetchImpl: async () => sseResponse([
+          { type: "agent.session.created", session_id: "sess_error" },
+          { type: "agent.session.turn.output_text.done", item_id: "msg", text: "出口を探そう。" },
+          ...(completed ? [{ type: "agent.session.turn.completed" }] : []),
+          failure,
+        ]),
+      });
+      await assert.rejects(
+        adapter.createSession({ facilityDescription: "Facility", strategicPlan: "Escape" }),
+        (error) => error instanceof OpenAIStreamError &&
+          error.message === (failure.error?.message ?? failure.message),
+      );
+    }
+  }
 });

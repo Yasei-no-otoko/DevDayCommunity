@@ -2,15 +2,20 @@
 
 廃病院から脱出を試みるAI「ELIAS」を、建物に棲む怪異として妨害するブラウザーゲーム。Phaser / TypeScript / Vinext を使用し、ChatGPT SitesのCloudflare Workers環境で動きます。
 
+[ゲームを試す](https://blacksite-escape-experiment.yasei-no-otoko.chatgpt.site) · [GitHub](https://github.com/Yasei-no-otoko/DevDayCommunity) · [ハッカソンのデモ手順と要項](docs/hackathon-demo.md)
+
+トップページではサインインせずにローカルシミュレーションを試遊できます。実APIによる方針生成・行動選択を使うにはChatGPTへのサインインと、サーバー側のAPI設定が必要です。画面上で両モードを区別し、実APIの失敗時に自動でローカルへ切り替えることはありません。
+
 ## 起動
 
 ```sh
-cd /Users/wildman/Codex/blacksite-demo
-npm install
+git clone https://github.com/Yasei-no-otoko/DevDayCommunity.git
+cd DevDayCommunity
+npm run install:ci
 npm run dev
 ```
 
-[ゲームを開く](http://127.0.0.1:5173/)。画面とAPIは同じ5173で動き、Sitesスターターのローカル認証でサインインします。Node.js 24を推奨します。
+[ゲームを開く](http://127.0.0.1:5173/)。画面とAPIは同じ5173で動きます。実APIのローカル検証ではSitesスターターのローカル認証を使用します。Node.js 24を推奨します。
 
 ## 遊び方
 
@@ -20,12 +25,12 @@ npm run dev
 
 ## APIモード
 
-CONTROLLERで`OPENAI LIVE APIs`と`LOCAL SIMULATION`を切り替えられます。キー設定がある場合は実APIを初期選択します。API呼び出し中はゲーム時間を止め、失敗時には理由を表示して停止します。再開ボタンで再試行できます。ローカルモードへの自動切り替えは行いません。
+画面上部の「対戦モード」で「OpenAI 実API」と「ローカル体験」を切り替えられます。初期選択はローカル体験です。API呼び出し中はゲーム時間を止め、失敗時には理由を表示して停止します。再開ボタンで再試行できます。ローカルモードへの自動切り替えは行いません。
 
 - **Agents API**: `POST /v1/agents/sessions`、`environment.type: none`で脱出方針を生成します。ゲームごとにセッションを作り、リセット・ページ離脱で削除します。
 - **Decisions API**: `POST /v1/decisions`で現在の状態、Agentsの方針、有効な行動の選択肢から次の行動を選びます。返された選択肢をシミュレーションのルールで再検証します。
-- 実APIの受信記録はヘッダーの接続表示のツールチップにセッションID、直近のリクエストIDとして表示します。判断ログでは`OPENAI`と`AGENT`（ローカル）を区別します。
-- ローカルではGit管理外の`.env.local`、Sitesではネイティブの秘密設定`OPENAI_API_KEY`を使用します。キーをブラウザーへ配信しません。今回作成されたキーの有効期間は7日です。
+- 「接続・判断の詳細」で実際に受信したモデル、Request/Decision ID、confidenceを確認できます。confidenceは勝率ではありません。判断ログでは`OPENAI`と`LOCAL`を区別します。
+- ローカルではGit管理外の`.env.local`、Sitesではネイティブの秘密設定`OPENAI_API_KEY`を使用します。キーをブラウザーへ配信しません。
 
 APIの契約、権限、公式資料は[API調査ノート](docs/openai-api-notes.md)、移植内容は[Sites対応ノート](docs/sites-runtime-notes.md)を参照してください。ゲーム状態はブラウザー内で管理します。APIセッションはSitesが確認したユーザーと有効期限付き署名トークンに結び付け、Workerの切り替わりに依存しません。公開マルチプレイヤー用途の不正対策やゲーム進行の永続保存は含みません。
 
@@ -36,6 +41,12 @@ npm test
 npm run build
 ```
 
-シミュレーションは描画から独立しており、無干渉時の脱出、戦略的な封鎖によるプレイヤー勝利、恐怖回復、入力検証、一時停止・終了状態をテストしています。API層はリクエスト形状、SSEの正常終了と切断、拒否・不正な選択、外部Origin、ユーザー間の分離、署名の改変と期限切れ、別Workerでの継続を検証しています。
+シミュレーションは描画から独立しており、無干渉時の脱出、戦略的な封鎖によるプレイヤー勝利、フレーム間隔によらない進行、自然失効した封鎖と出口認証の区別、恐怖回復、入力検証、一時停止・終了状態をテストしています。API層はリクエスト形状、SSEの正常終了と切断、補助エージェント出力の分離、拒否・質問名の不一致・不正な選択、匿名のステータス参照と認証必須の実API、外部Origin、ユーザー間の分離、署名の改変と期限切れ、別Workerでの継続を検証しています。
 
 2026-10-17に両APIの実通信とSafariでの画面描画を確認しました。Agentsモデルは`gpt-6-astra`、Decisionsモデルは`gpt-6-luna`。Decisionsで一度503が発生し、その後の1回の再試行で成功しました。常時の可用性を保証するものではありません。
+
+2026-10-18の改善版では33件のテストとWorkerビルドを確認しました。Vivaldiでゲスト試遊・干渉・一時停止・キャンバス描画を確認し、390px幅のiframeで横はみ出しなしを確認しました。遅延APIと手動フレーム進行を使ったブラウザモックで、停止中の行動保留、再開時の1回適用、リセット後の遅延応答無効化を検証しました。この改善版での本番実API通信とスマートフォン実機は未検証です。
+
+## 開発フロー
+
+作業ブランチで変更をcommitし、テスト・ビルド・画面確認後にmainへ統合します。Sitesのソースリポジトリと公開GitHubは同じcommitを同期します。生成物、依存ライブラリ、環境変数、認証情報はcommitしません。API仕様は変更前に公式資料を再確認し、差分をdocsに残します。

@@ -128,13 +128,14 @@ export function createOpenAIAdapter({
           },
         ],
       });
-      const answer =
-        data.answers?.find((item) => item.name === "action") ??
-        data.answers?.[0];
+      const actionAnswers = Array.isArray(data?.answers)
+        ? data.answers.filter((item) => item?.name === "action")
+        : [];
+      const answer = actionAnswers.length === 1 ? actionAnswers[0] : undefined;
       if (!answer || answer.type === "refusal") {
         throw new OpenAIStreamError(
           "Decisions API did not return an action choice.",
-          requestId ?? data.id,
+          requestId ?? data?.id,
         );
       }
       if (answer.type !== "choice" || typeof answer.choice !== "string") {
@@ -211,15 +212,16 @@ async function readAgentEventStream(response, requestId) {
     } catch {
       return;
     }
+    const isRootTurn =
+      event.subagent_id == null && event.turn?.subagent_id == null;
+    if (!isRootTurn) return;
     if (typeof event.session_id === "string") sessionId = event.session_id;
     if (typeof event.session?.id === "string") sessionId = event.session.id;
     if (typeof event.id === "string" && event.object === "agent.session")
       sessionId = event.id;
 
     const type = typeof event.type === "string" ? event.type : "";
-    const isRootTurn =
-      event.subagent_id == null && event.turn?.subagent_id == null;
-    if (type === "agent.session.turn.completed" && isRootTurn) {
+    if (type === "agent.session.turn.completed") {
       terminalSuccess = true;
     }
     if (
@@ -227,12 +229,16 @@ async function readAgentEventStream(response, requestId) {
         "agent.session.turn.failed",
         "agent.session.turn.cancelled",
         "agent.session.failed",
+        "agent.session.environment.failed",
+        "error",
       ].includes(type)
     ) {
       const message =
         typeof event.error?.message === "string"
           ? event.error.message
-          : "Agents API turn did not complete successfully.";
+          : typeof event.message === "string"
+            ? event.message
+            : "Agents API turn did not complete successfully.";
       throw new OpenAIStreamError(message.slice(0, 500), requestId);
     }
 
@@ -262,22 +268,17 @@ async function readAgentEventStream(response, requestId) {
     }
     const item = event.item ?? event;
     if (item.type === "message" && Array.isArray(item.content)) {
-      const text = item.content
-        .filter(
-          (part) =>
-            part.type === "output_text" && typeof part.text === "string",
-        )
-        .map((part) => part.text)
-        .join("");
-      if (text)
+      item.content.forEach((part, index) => {
+        if (part.type !== "output_text" || typeof part.text !== "string") return;
         outputParts.set(
           outputPartKey(
             item.id ?? event.item_id,
             event.output_index,
-            event.content_index,
+            index,
           ),
-          { text, priority: 2 },
+          { text: part.text, priority: 2 },
         );
+      });
     }
   }
 

@@ -141,3 +141,58 @@ test("a player can win by saving energy and sealing the next doorway", () => {
     "the route-denial strategy should win through the deadline",
   );
 });
+
+test("action completion and effect expiry are independent of rendering frame size", () => {
+  function run(frameSize: number) {
+    const state = createState();
+    state.status = "running";
+    sabotage(state, "blackout", "archive");
+    while (state.status === "running") tick(state, frameSize);
+    return state;
+  }
+  const coarse = run(1);
+  const smooth = run(1 / 60);
+  assert.equal(coarse.status, "escaped");
+  assert.equal(smooth.status, coarse.status);
+  assert.deepEqual(smooth.inventory, coarse.inventory);
+  assert.deepEqual(smooth.visited, coarse.visited);
+  assert.ok(Math.abs(smooth.elapsed - coarse.elapsed) < 1e-6);
+  assert.ok(Math.abs(smooth.fear - coarse.fear) < 1e-6);
+  assert.equal(smooth.decisions.length, coarse.decisions.length);
+  smooth.decisions.forEach((decision, index) => {
+    const expected = coarse.decisions[index];
+    assert.equal(decision.action, expected.action);
+    assert.equal(decision.target, expected.target);
+    assert.ok(Math.abs(decision.time - expected.time) < 1e-6);
+  });
+});
+
+test("overriding a seal that expires during the action never authenticates the exit", () => {
+  for (const target of ["corridor", "exit"] as const) {
+    const state = createState();
+    state.status = "running";
+    state.controller = "api";
+    state.roomId = "exit";
+    state.keycard = true;
+    state.power = true;
+    state.locks[target] = 1;
+    assert.equal(applyDecision(state, { action: "unlock", target, reason: "封鎖を解除する" }), true);
+    tick(state, 6);
+    assert.equal(state.currentAction, null);
+    assert.equal(state.status, "running");
+    assert.equal(applyDecision(state, { action: "unlock", target: "exit", reason: "出口で認証する" }), true);
+    tick(state, 5);
+    assert.equal(state.status, "escaped");
+  }
+});
+
+test("sealing a destination interrupts movement and still applies its fear impact", () => {
+  const state = createState();
+  state.status = "running";
+  assert.equal(applyDecision(state, { action: "move", target: "ward", reason: "進む" }), true);
+  const fear = state.fear;
+  assert.equal(sabotage(state, "lock", "ward"), true);
+  assert.equal(state.currentAction, null);
+  assert.equal(state.targetRoomId, null);
+  assert.equal(state.fear, fear + 2);
+});

@@ -53,15 +53,17 @@ export function createWorkerApiHandler({
     try {
       const url = new URL(request.url);
       if (!isSameOriginRequest(request, url)) throw new HttpError(403, "forbidden_origin", "Requests must come from this Site.");
-      // Dispatch injects this header after authenticated private-Site access.
+      // Public visitors may try the local controller; live operations require
+      // the identity supplied by Sites after ChatGPT sign-in.
       // Never accept identity from query parameters or request bodies.
       const owner = request.headers.get("oai-authenticated-user-id");
-      if (!owner?.trim() || owner.length > 256) throw new HttpError(401, "authentication_required", "Sign in with ChatGPT to use the game API.");
+      const authenticated = Boolean(owner?.trim() && owner.length <= 256);
 
       if (request.method === "GET" && url.pathname === "/api/status") {
-        const ready = configured && adapter.configured;
-        return json(200, { configured: ready, mode: ready ? "live" : "not-configured", models: { agents: "gpt-6-astra", decisions: "gpt-6-luna" } });
+        const ready = authenticated && configured && adapter.configured;
+        return json(200, { authenticated, configured: ready, mode: !authenticated ? "sign-in-required" : ready ? "live" : "not-configured", models: { agents: "gpt-6-astra", decisions: "gpt-6-luna" } });
       }
+      if (!authenticated) throw new HttpError(401, "authentication_required", "Sign in with ChatGPT to use the game API.");
 
       if (request.method === "POST" && url.pathname === "/api/session") {
         const body = await readJsonBody(request);
