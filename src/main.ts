@@ -761,7 +761,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     $("result").classList.toggle("capture-failure", caughtAtFearLimit);
     $("result").setAttribute("role", caughtAtFearLimit ? "alert" : "region");
     $("result").setAttribute("aria-label", caughtAtFearLimit ? "恐怖100到達後のぬこぬこさん捕獲による実験失敗" : "実験結果");
-    if (ended) {
+    if (ended && !cinematics.active) {
       const resultKey = `${state.status}:${state.terminalReason}:${state.elapsed}:${state.interventions}`;
       if (resultKey !== lastResultKey) {
         lastResultKey = resultKey;
@@ -875,7 +875,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     const dt = Math.min((now - last) / 1000, 0.15);
     last = now;
     const statusBeforeTick = state.status;
-    const hadContact = state.killer.encountered;
+    const encounterCountBeforeTick = state.killer.encounterCount;
     const wasKillerSpawned = state.killer.spawned;
     advanceWatchback(dt);
     const tiboVisible = !cinematics.active && tiboRemaining > 0 && !watchbackActive() && !document.hidden && !dialogs.some((dialog) => dialog.open);
@@ -906,10 +906,18 @@ export function mountBlacksite(root: HTMLElement): () => void {
     // No movie is requested until the actual asset is supplied.
     const firstKillerSpawn = !wasKillerSpawned && state.killer.spawned;
     if (firstKillerSpawn) toast("キーカード取得。ぬこぬこさんが出現しました。");
-    const firstContact = !hadContact && state.killer.encountered;
+    const contactOccurred = state.killer.encounterCount > encounterCountBeforeTick;
+    const firstContact = contactOccurred && encounterCountBeforeTick === 0;
+    if (contactOccurred) {
+      const gen = generation;
+      // Contact is separate from spawning; an ending waits until this movie closes.
+      void cinematics.play("/video/contact.mp4", "ぬこぬこさんとの接触", !soundOn).then((advance) => {
+        if (advance && !disposed && generation === gen) render();
+      });
+    }
     const justEnded = statusBeforeTick === "running" && state.status !== "running";
     if (firstContact) toast("ぬこぬこさんがサムに接触！捕獲状態を記録しました。恐怖100まで実験は続きます。", "capture");
-    if (firstKillerSpawn || firstContact || justEnded) {
+    if (firstKillerSpawn || contactOccurred || justEnded) {
       render();
       lastRender = now;
     } else if (now - lastRender > 80) {
