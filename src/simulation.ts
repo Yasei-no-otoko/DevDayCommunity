@@ -134,6 +134,15 @@ export interface Effect {
   roomId: RoomId;
   expiresAt: number;
 }
+export interface InterventionRecord {
+  id: number;
+  time: number;
+  type: SabotageType;
+  roomId: RoomId;
+  affectedSubject: boolean;
+  interruptedMove: boolean;
+  fearDelta: number;
+}
 export interface GameState {
   status: "waiting" | "running" | "escaped" | "contained";
   paused: boolean;
@@ -152,6 +161,8 @@ export interface GameState {
   power: boolean;
   decisions: DecisionLog[];
   interventions: number;
+  /** Successful interventions, newest first, retained independently of effect expiry. */
+  interventionHistory: InterventionRecord[];
   effects: Effect[];
   locks: Partial<Record<RoomId, number>>;
   cooldowns: Record<SabotageType, number>;
@@ -178,6 +189,7 @@ export function createState(): GameState {
     power: false,
     decisions: [],
     interventions: 0,
+    interventionHistory: [],
     effects: [],
     locks: {},
     cooldowns: { blackout: 0, lock: 0, whisper: 0, apparition: 0 },
@@ -448,6 +460,7 @@ export function sabotage(
   if (
     state.status !== "running" ||
     state.paused ||
+    state.thinking ||
     !Object.hasOwn(SABOTAGE, type) ||
     !ROOMS.some((r) => r.id === targetRoom)
   )
@@ -457,6 +470,11 @@ export function sabotage(
     return false;
   const affectsSubject =
     targetRoom === state.roomId || targetRoom === state.targetRoomId;
+  const interruptedMove =
+    type === "lock" &&
+    state.currentAction?.action === "move" &&
+    state.targetRoomId === targetRoom;
+  const fearBefore = state.fear;
   state.energy -= rule.cost;
   state.cooldowns[type] = state.elapsed + rule.cooldown;
   state.interventions += 1;
@@ -471,10 +489,7 @@ export function sabotage(
   });
   if (type === "lock") {
     state.locks[targetRoom] = state.elapsed + rule.duration;
-    if (
-      state.currentAction?.action === "move" &&
-      state.targetRoomId === targetRoom
-    ) {
+    if (interruptedMove) {
       state.currentAction = null;
       state.targetRoomId = null;
       state.progress = 0;
@@ -482,6 +497,16 @@ export function sabotage(
   }
   if (affectsSubject)
     state.fear = Math.min(99, state.fear + rule.fear);
+  state.interventionHistory.unshift({
+    id: state.interventions,
+    time: state.elapsed,
+    type,
+    roomId: targetRoom,
+    affectedSubject: affectsSubject,
+    interruptedMove,
+    fearDelta: state.fear - fearBefore,
+  });
+  state.interventionHistory.length = Math.min(state.interventionHistory.length, 12);
   log(
     state,
     {

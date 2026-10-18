@@ -195,4 +195,115 @@ test("sealing a destination interrupts movement and still applies its fear impac
   assert.equal(state.currentAction, null);
   assert.equal(state.targetRoomId, null);
   assert.equal(state.fear, fear + 2);
+  assert.deepEqual(state.interventionHistory, [{
+    id: 1,
+    time: 0,
+    type: "lock",
+    roomId: "ward",
+    affectedSubject: true,
+    interruptedMove: true,
+    fearDelta: 2,
+  }]);
+});
+
+test("intervention history distinguishes an empty-room placement from a subject hit", () => {
+  const state = createState();
+  state.status = "running";
+  state.controller = "api";
+  tick(state, 2);
+  assert.equal(sabotage(state, "blackout", "archive"), true);
+  assert.deepEqual(state.interventionHistory[0], {
+    id: 1,
+    time: 2,
+    type: "blackout",
+    roomId: "archive",
+    affectedSubject: false,
+    interruptedMove: false,
+    fearDelta: 0,
+  });
+  assert.equal(sabotage(state, "whisper", "reception"), true);
+  assert.deepEqual(state.interventionHistory[0], {
+    id: 2,
+    time: 2,
+    type: "whisper",
+    roomId: "reception",
+    affectedSubject: true,
+    interruptedMove: false,
+    fearDelta: 8,
+  });
+  const recorded = structuredClone(state.interventionHistory);
+  tick(state, 15);
+  assert.equal(state.effects.length, 0);
+  assert.deepEqual(state.interventionHistory, recorded);
+});
+
+test("destination hits record fear without implying that every effect stops movement", () => {
+  const state = createState();
+  state.status = "running";
+  assert.equal(applyDecision(state, { action: "move", target: "ward", reason: "進む" }), true);
+  const action = state.currentAction;
+  state.fear = 98;
+  assert.equal(sabotage(state, "apparition", "ward"), true);
+  assert.equal(state.currentAction, action);
+  assert.equal(state.targetRoomId, "ward");
+  assert.equal(state.fear, 99);
+  assert.deepEqual(state.interventionHistory[0], {
+    id: 1,
+    time: 0,
+    type: "apparition",
+    roomId: "ward",
+    affectedSubject: true,
+    interruptedMove: false,
+    fearDelta: 1,
+  });
+  assert.equal(sabotage(state, "lock", "reception"), true);
+  assert.equal(state.currentAction, action);
+  assert.equal(state.interventionHistory[0].affectedSubject, true);
+  assert.equal(state.interventionHistory[0].interruptedMove, false);
+  assert.equal(state.interventionHistory[0].fearDelta, 0);
+});
+
+test("rejected interventions never create history or consume an intervention id", () => {
+  for (const blocked of ["waiting", "paused", "thinking", "energy", "cooldown", "escaped", "contained"] as const) {
+    const state = createState();
+    state.status = "running";
+    // Preserve an existing successful record to prove failed input cannot change it.
+    assert.equal(sabotage(state, "whisper", "archive"), true);
+    state.cooldowns.whisper = 0;
+    if (blocked === "waiting" || blocked === "escaped" || blocked === "contained") state.status = blocked;
+    if (blocked === "paused") state.paused = true;
+    if (blocked === "thinking") state.thinking = true;
+    if (blocked === "energy") state.energy = 0;
+    if (blocked === "cooldown") state.cooldowns.whisper = state.elapsed + 1;
+    const before = JSON.stringify(state);
+    assert.equal(sabotage(state, "whisper", "reception"), false, blocked);
+    assert.equal(JSON.stringify(state), before, blocked);
+  }
+});
+
+test("intervention history retains the latest twelve successful records and resets cleanly", () => {
+  const state = createState();
+  state.status = "running";
+  state.controller = "api";
+  for (let index = 0; index < 14; index++) {
+    assert.equal(sabotage(state, "whisper", "archive"), true);
+    tick(state, 10.1);
+  }
+  assert.equal(state.interventions, 14);
+  assert.equal(state.interventionHistory.length, 12);
+  assert.deepEqual(state.interventionHistory.map((record) => record.id),
+    [14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3]);
+  for (const record of state.interventionHistory) {
+    assert.ok(Math.abs(record.time - (record.id - 1) * 10.1) < 1e-6);
+    assert.equal(record.affectedSubject, false);
+    assert.equal(record.interruptedMove, false);
+    assert.equal(record.fearDelta, 0);
+  }
+  const fresh = createState();
+  assert.deepEqual(fresh.interventionHistory, []);
+  assert.equal(fresh.interventions, 0);
+  fresh.status = "running";
+  assert.equal(sabotage(fresh, "lock", "reception"), true);
+  assert.equal(fresh.interventionHistory[0].id, 1);
+  assert.equal(state.interventionHistory[0].id, 14);
 });

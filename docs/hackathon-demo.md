@@ -9,7 +9,7 @@ The [Luma event page](https://luma.com/OpenAIDevDay2026CommunityHackathon) descr
 3. **Usefulness:** It could help other people in the future.
 4. **Originality:** The idea or solution has an original angle.
 
-The schedule gives 14:00–17:30 for hacking, followed by pre-judging at 17:30 and demos for 10 teams from 17:45. The page does not publish a separate submission form or submission URL; treat 17:30 as the build cutoff and have the deployed URL ready for the demo. Luma showed registration as closed when checked.
+The published schedule gives 14:00–17:30 for hacking, followed by pre-judging at 17:30 and demos for 10 teams from 17:45. The user provided **17:15 JST on 2026-10-18 as the submission deadline**. Use 17:15 as the working deadline and finish deployment and acceptance before then; the activity schedule is not evidence of a later submission deadline. The event page did not publish a separate submission form or submission URL when checked. Luma showed registration as closed when checked.
 
 The rules require a web-published deliverable and allow ChatGPT Sites, Cloudflare Workers, Vercel, and similar hosts. Development during the event must use Codex CLI, Codex App, or ChatGPT Work. Prebuilt work is disallowed; an unpublished, new prototype is allowed. Updating an entry submitted to another hackathon is disallowed. Because the starting Blacksite site is already public, whether this particular site or its current state qualifies as the new hackathon deliverable is **unconfirmed**. The event page does not resolve that question.
 

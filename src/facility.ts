@@ -719,6 +719,9 @@ export function createFacility(
   agentLabel.className = "facility-agent-label";
   agentLabel.textContent = "ELIAS";
   labels.append(agentLabel);
+  const destinationLabel = document.createElement("span");
+  destinationLabel.className = "facility-destination-label hidden";
+  labels.append(destinationLabel);
   let latestState: GameState | undefined;
   let selection: RoomId = "reception";
   const reducedMotion = window.matchMedia(
@@ -843,6 +846,23 @@ export function createFacility(
       light.fillCircle(x, y - 7, 2);
       const g = this.selectionGraphics;
       g.clear();
+      // Only an accepted, currently executing move is visible. No future plan is drawn.
+      if (state?.currentAction?.action === "move" && state.targetRoomId === state.currentAction.target) {
+        const targetRoom = state.currentAction.target;
+        const remaining = 1 - state.progress;
+        g.lineStyle(2, 0xcbd8a1, 0.8);
+        const sections = 64;
+        for (let i = 0; i < sections; i += 2) {
+          const a = routePosition(state.roomId, targetRoom, state.progress + remaining * i / sections);
+          const b = routePosition(state.roomId, targetRoom, state.progress + remaining * (i + 1) / sections);
+          g.lineBetween(a.x, a.y, b.x, b.y);
+        }
+        const destination = center(roomFor(targetRoom));
+        g.lineStyle(2, 0xd3dda8, 0.9);
+        g.strokeCircle(destination.x, destination.y, 16);
+        g.lineBetween(destination.x - 7, destination.y, destination.x + 7, destination.y);
+        g.lineBetween(destination.x, destination.y - 7, destination.x, destination.y + 7);
+      }
       const selected = roomFor(selection);
       if (this.hoverRoom && this.hoverRoom !== selection) {
         const r = roomFor(this.hoverRoom);
@@ -978,6 +998,14 @@ export function createFacility(
     update(state: GameState, selectedRoom: RoomId) {
       latestState = state;
       selection = selectedRoom;
+      const moving = state.currentAction?.action === "move" && state.targetRoomId === state.currentAction.target;
+      destinationLabel.classList.toggle("hidden", !moving);
+      if (moving && state.currentAction) {
+        const destination = center(roomFor(state.currentAction.target));
+        destinationLabel.textContent = `移動先：${roomNames[state.currentAction.target]}`;
+        destinationLabel.style.left = `${destination.x / W * 100}%`;
+        destinationLabel.style.top = `${destination.y / H * 100}%`;
+      }
       for (const { room, label } of roomLabels) {
         label.classList.toggle("selected", room.id === selectedRoom);
       }
