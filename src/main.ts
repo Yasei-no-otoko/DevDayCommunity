@@ -3,6 +3,8 @@ import {
   ROOMS,
   CONNECTIONS,
   SABOTAGE,
+  HIDEOUT,
+  isHiding,
   createState,
   tick,
   sabotage,
@@ -73,7 +75,7 @@ const roomNames: Record<RoomId, string> = {
   archive: "書庫", laboratory: "研究室", generator: "非常用電源室", exit: "避難口",
 };
 const roomName = (id: RoomId) => roomNames[id];
-const actionNames = { move: "移動", search: "探索", restore: "電源復旧", unlock: "解錠", wait: "深呼吸" };
+const actionNames = { move: "移動", search: "探索", restore: "電源復旧", unlock: "解錠", wait: "深呼吸", hide: "隠れる" };
 
 export function mountBlacksite(root: HTMLElement): () => void {
   let disposed = false;
@@ -95,7 +97,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <section class="briefing" aria-label="実験のルール"><span><b>あなたは怪異。</b> AIを閉じ込めろ。</span><span><b>勝利</b> 恐怖100 または180秒阻止</span><span><b>操作</b> 開始 → 部屋選択 → 1〜4で干渉</span><span class="briefing-loss">鍵・電源を確保したAIが脱出すると敗北</span></section>
     <main class="console" aria-label="施設監視コンソール">
       <section class="subject-panel"><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span><img id="subject-portrait" src="/sam-altman.webp" alt="" aria-hidden="true">${svg("signal", 13)}</div><div class="subject-name"><h2>SAM <small>サム・アルトマン</small></h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">AI</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} 選択された行動</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">サム・アルトマンの脱出開始を待っています。</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
-      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div><span>TIBO SUPPORT</span><strong>使用間隔リセット</strong><small>4つの干渉を再使用可能</small></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
+      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div class="tibo-copy"><span>TIBO <b>SUPPORT</b></span><strong>使用間隔リセット</strong><small>4つの干渉を再使用可能</small><em>エネルギーそのまま</em></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
       <section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select" aria-describedby="target-summary room-hint">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><p id="target-summary" class="target-summary">対象：受付 · サムが在室</p><span class="room-hint sr-only" id="room-hint">サムを自動追跡</span></div><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 36)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}<kbd>${i + 1}</kbd></strong><span class="sabotage-detail">持続${SABOTAGE[item.type].duration}秒 · CD ${SABOTAGE[item.type].cooldown}秒</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p></section>
     </main>
     <section class="event-console" aria-label="最新の記録"><div class="log-heading"><span><i></i> ACTIVITY LOG</span><button class="text-button" id="toggle-log">全記録 ↗</button></div><div id="activity-log"></div></section>
@@ -103,7 +105,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <dialog id="log-dialog" aria-labelledby="log-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">EXPERIMENT / 007</div><h2 id="log-title">実験の全記録</h2><div id="full-log"></div></dialog>
     <dialog id="thought-dialog" aria-labelledby="thought-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">サム・アルトマン / SELECTED ACTION</div><h2 id="thought-title">選択された行動の説明</h2><p class="dialog-fine">実APIモードでは、Decisions APIが選択した候補にあらかじめ付けた説明です。サム・アルトマンの独白や内部思考ではありません。</p><p id="full-thought"></p><h3>Agents APIの脱出方針</h3><p id="full-plan">実APIモードで受信すると表示します。</p></dialog>
     <dialog id="result-dialog" aria-labelledby="result-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div id="result" class="result" role="region" aria-label="実験結果" aria-live="polite"></div></dialog>
-    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — 進路を遮断します。AIは迂回や解錠を試みます。</li><li><b>囁き・怪異</b> — 同じ部屋のAIの恐怖を高めます。</li></ol><p>恐怖が100、または制限時間180秒であなたの勝利。AIは深呼吸で恐怖を抑えるため、部屋とタイミングの選択が鍵です。</p><p>美少女キラー「ぬこぬこさん」はサムを追尾。サムは初遭遇まで彼女の位置を知りません。遭遇後は回避を試みます。ときどき現れるTiboは4つの干渉の使用間隔だけをリセットします。エネルギーと実験の進行は戻りません。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
+    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — 進路を遮断します。AIは迂回や解錠を試みます。</li><li><b>囁き・怪異</b> — 同じ部屋のAIの恐怖を高めます。</li></ol><p>恐怖が100、または制限時間180秒であなたの勝利。AIは深呼吸で恐怖を抑えるため、部屋とタイミングの選択が鍵です。</p><p>美少女キラー「ぬこぬこさん」はサムを追尾。サムは初遭遇まで彼女の位置を知りません。遭遇後は回避を試みます。ときどき現れるTiboは4つの干渉の使用間隔だけをリセットします。エネルギーと実験の進行は戻りません。</p><p>隔離病棟にはベッドの陰の隠れ場所があります。サムは初遭遇後、14秒隠れて追跡をやり過ごし、脱出の準備へ戻ります。再使用は42秒間隔。病棟に怪異を出すと隠れたサムを追い出せます。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
 
   const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
     root.querySelector<T>(`#${id}`)!;
@@ -353,6 +355,11 @@ export function mountBlacksite(root: HTMLElement): () => void {
         target: state.roomId,
         reason: "深呼吸して恐怖を抑える。",
       },
+      {
+        action: "hide",
+        target: "ward",
+        reason: "隔離病棟のベッドの陰で14秒息を潜め、キラーをやり過ごして脱出準備へ戻る。隠れ場所は42秒間隔で使える。",
+      },
       ...ROOMS.map((r) => ({
         action: "unlock" as const,
         target: r.id,
@@ -397,9 +404,10 @@ export function mountBlacksite(root: HTMLElement): () => void {
           goal: "AI-controlled game avatar Sam Altman finds keycard in archive, restores generator, unlocks exit. Avoid fear100 and deadline180. Player is the building entity and sabotages rooms.",
           killerRules: "Nuko Nuko is a girl killer who pursues Sam through connected rooms. Sam does not know her location until their first encounter. After that, avoid the known killer while completing escape objectives. Encounters raise fear; she does not end the game instantly.",
           helperRules: "Tibo occasionally resets the cooldowns of the four player interventions. Energy, progress and active effects are unchanged.",
+          hideoutRules: "The isolation ward has a hiding space behind beds. After first encountering the killer, Sam can hide there for 14 seconds, at most once every 42 seconds. While hidden and for 10 seconds after a successful hide, the killer loses his trail and moves away. An apparition placed in the ward flushes him out. Use the refuge to regain distance, then continue keycard, power and exit objectives.",
         }),
         strategicPlan:
-          "You control the fictional game avatar Sam Altman. In Japanese, give a concise 2-sentence escape plan grounded in this facility. You cannot know the killer location before the first encounter; after encountering her, avoid known danger while securing keycard, power and exit. Your plan will guide Decisions API action selection.",
+          "You control the fictional game avatar Sam Altman. In Japanese, give a concise 2-sentence escape plan grounded in this facility. You cannot know the killer location before the first encounter. After encountering her, use the isolation ward's bed hideout to lose the pursuer, then continue securing keycard, power and exit. Your plan will guide Decisions API action selection.",
       });
       if (gen !== generation) {
         closeSession(result.sessionId, result.sessionToken);
@@ -474,6 +482,15 @@ export function mountBlacksite(root: HTMLElement): () => void {
           clues: state.clues,
           strategy: plan,
           recentActions: state.decisions.filter((entry) => entry.source !== "system" && entry.action !== "plan").slice(0, 6),
+          hideout: {
+            roomId: "ward",
+            active: isHiding(state),
+            available: choices.some((choice) => choice.action === "hide"),
+            cooldownRemaining: Math.max(0, state.hideout.availableAt - state.elapsed),
+            completed: state.hideout.completed,
+            trailLostFor: Math.max(0, state.hideout.lostUntil - state.elapsed),
+            ...HIDEOUT,
+          },
           ...(state.killer.encountered ? { knownKiller: {
             name: "ぬこぬこさん",
             roomId: state.killer.roomId,
@@ -605,6 +622,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     const occupied = selectedRoom === state.roomId;
     const incoming = selectedRoom === state.targetRoomId;
     const stopped = type === "lock" && incoming && state.currentAction?.action === "move";
+    const flushed = type === "apparition" && selectedRoom === "ward" && isHiding(state);
     const before = state.fear;
     if (sabotage(state, type, selectedRoom)) {
       if (!watchbackSeen && state.interventionHistory[0]) {
@@ -614,13 +632,14 @@ export function mountBlacksite(root: HTMLElement): () => void {
       tone(type);
       const name = interventions.find((i) => i.type === type)!.name;
       const fearGain = Number((state.fear - before).toFixed(1));
-      lastFeedback = `${roomName(selectedRoom)}に${name}。${stopped ? "進路を遮断！サムの移動を止めました。" : occupied || incoming ? `${fearGain ? `恐怖 +${fearGain}。` : ""}この部屋に干渉が続きます。` : "先回りして配置。サム・アルトマンが来ると効果を発揮します。"}`;
+      lastFeedback = `${roomName(selectedRoom)}に${name}。${flushed ? "サムを隠れ場所から追い出しました。" : stopped ? "進路を遮断！サムの移動を止めました。" : occupied || incoming ? `${fearGain ? `恐怖 +${fearGain}。` : ""}この部屋に干渉が続きます。` : "先回りして配置。サム・アルトマンが来ると効果を発揮します。"}`;
       toast(lastFeedback);
       render();
     }
   }
   function interferenceUse(type: SabotageType): string {
     const occupied = selectedRoom === state.roomId;
+    if (type === "apparition" && occupied && isHiding(state)) return "隠れ場所からサムを追い出す";
     const incoming = state.currentAction?.action === "move" && selectedRoom === state.currentAction.target;
     if (type === "lock") return incoming ? "今なら移動を中断できる" : occupied ? "在室する部屋の扉を12秒間封鎖" : "12秒間、次の進入を封鎖";
     if (type === "blackout") {
@@ -696,8 +715,9 @@ export function mountBlacksite(root: HTMLElement): () => void {
     ($("room-select") as HTMLSelectElement).value = selectedRoom;
     $("follow").classList.toggle("active", following);
     $("follow").setAttribute("aria-pressed", String(following));
-    setText("room-hint", selectedRoom === state.roomId ? "サムが在室" : selectedRoom === state.targetRoomId ? "サムが移動中 → この部屋へ" : "サムは別の部屋にいます · 先回りして配置");
-    setText("target-summary", `対象：${roomName(selectedRoom)} · ${selectedRoom === state.roomId ? "サムが在室" : selectedRoom === state.targetRoomId ? "サムの移動先" : "現在は無人"}`);
+    const occupiedLabel = isHiding(state) ? "サムが隠れている" : "サムが在室";
+    setText("room-hint", selectedRoom === state.roomId ? occupiedLabel : selectedRoom === state.targetRoomId ? "サムが移動中 → この部屋へ" : "サムは別の部屋にいます · 先回りして配置");
+    setText("target-summary", `対象：${roomName(selectedRoom)} · ${selectedRoom === state.roomId ? occupiedLabel : selectedRoom === state.targetRoomId ? "サムの移動先" : "現在は無人"}`);
     const followLabel = $("follow").querySelector("span")!;
     if (followLabel.textContent !== `追跡 ${following ? "ON" : "OFF"}`) followLabel.textContent = `追跡 ${following ? "ON" : "OFF"}`;
     setText("interference-feedback", lastFeedback);
@@ -711,7 +731,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     $("interventions").textContent = state.interventions
       .toString()
       .padStart(2, "0");
-    const subjectStatus = state.paused ? "実験を一時停止中" : state.thinking ? "OpenAIの応答待ち" : state.status === "waiting" ? "実験の開始待ち" : state.status === "escaped" ? "施設から脱出" : state.status === "contained" ? "封じ込め成功" : state.killer.encountered ? "キラーを警戒 · 逃走中" : "脱出経路を探索中";
+    const subjectStatus = state.paused ? "実験を一時停止中" : state.thinking ? "OpenAIの応答待ち" : state.status === "waiting" ? "実験の開始待ち" : state.status === "escaped" ? "施設から脱出" : state.status === "contained" ? "封じ込め成功" : isHiding(state) ? "病棟でキラーをやり過ごす" : state.killer.encountered ? "キラーを警戒 · 逃走中" : "脱出経路を探索中";
     if ($("subject-status").textContent?.trim() !== subjectStatus) $("subject-status").innerHTML = `<i></i> ${subjectStatus}`;
     const selectedAction = state.currentAction || state.decisions.find((entry) => entry.source !== "system" && entry.action !== "plan");
     setText("thought", state.thinking
