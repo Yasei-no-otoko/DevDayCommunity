@@ -365,7 +365,7 @@ test("intervention history retains the latest twelve successful records and rese
   assert.equal(state.interventionHistory[0].id, 14);
 });
 
-test("the pursuer approaches Sam over legal edges and contact ends the run", () => {
+test("the pursuer approaches Sam over legal edges and records contact", () => {
   const state = createState(123);
   state.status = "running";
   assert.equal(state.roomId, "reception");
@@ -390,8 +390,9 @@ test("the pursuer approaches Sam over legal edges and contact ends the run", () 
     }
   }
   assert.ok(transitions >= 1);
-  assert.equal(state.status, "contained");
-  assert.equal(state.terminalReason, "contact");
+  assert.equal(state.killer.encountered, true);
+  assert.ok(["contained", "escaped"].includes(state.status));
+  assert.notEqual(state.terminalReason, null);
 });
 
 test("Sam cannot route around an unseen killer but avoids its room after first contact", () => {
@@ -418,7 +419,7 @@ test("Sam cannot route around an unseen killer but avoids its room after first c
   assert.equal(chooseLocalAction(state).action, "search");
 });
 
-test("contact with the pursuer immediately ends the run with a distinct outcome", () => {
+test("first contact records capture and gameplay continues", () => {
   const state = createState(123);
   state.status = "running";
   state.controller = "api";
@@ -427,16 +428,18 @@ test("contact with the pursuer immediately ends the run with a distinct outcome"
   assert.equal(state.killer.encountered, true);
   assert.equal(state.killer.encounterCount, 1);
   assert.equal(state.killer.lastEncounterAt, 0);
-  assert.equal(state.status, "contained");
-  assert.equal(state.terminalReason, "contact");
-  assert.equal(state.outcome, "ぬこぬこさんがサムに接触した。被験者ロスト。");
+  assert.equal(state.status, "running");
+  assert.equal(state.terminalReason, null);
+  assert.equal(state.outcome, "ぬこぬこさんがサムに接触。恐怖100に達すると実験終了。");
+  assert.ok(state.elapsed > 0);
   assert.equal(state.decisions[0]!.source, "system");
-  const frozen = JSON.stringify(state);
+  const elapsed = state.elapsed;
   tick(state, 30);
-  assert.equal(JSON.stringify(state), frozen);
+  assert.equal(state.status, "running");
+  assert.ok(state.elapsed > elapsed);
 });
 
-test("contact ends unfinished stationary work and movement immediately", () => {
+test("contact does not interrupt unfinished stationary work or movement", () => {
   for (const action of ["search", "restore", "unlock", "wait"] as const) {
     const state = createState(123);
     state.status = "running";
@@ -453,11 +456,10 @@ test("contact ends unfinished stationary work and movement immediately", () => {
     state.killer.progress = 0;
     tick(state, 0.01);
     assert.equal(state.killer.encountered, true, action);
-    assert.equal(state.currentAction, null, action);
-    assert.equal(state.targetRoomId, null, action);
-    assert.equal(state.progress, 0, action);
-    assert.equal(state.status, "contained", action);
-    assert.equal(state.terminalReason, "contact", action);
+    assert.equal(state.currentAction?.action, action, action);
+    assert.ok(state.progress > 0, action);
+    assert.equal(state.status, "running", action);
+    assert.equal(state.terminalReason, null, action);
     if (action === "search") assert.equal(state.keycard, false);
     if (action === "restore") assert.equal(state.power, false);
   }
@@ -471,15 +473,13 @@ test("contact ends unfinished stationary work and movement immediately", () => {
   moving.killer.targetRoomId = null;
   tick(moving, 0.01);
   assert.equal(moving.killer.encounterCount, 1);
-  assert.equal(moving.currentAction, null);
-  assert.equal(moving.targetRoomId, null);
-  assert.equal(moving.progress, 0);
-  assert.ok(progress > 0);
-  assert.equal(moving.status, "contained");
-  assert.equal(moving.terminalReason, "contact");
+  assert.equal(moving.currentAction?.action, "move");
+  assert.ok(moving.progress > progress);
+  assert.equal(moving.status, "running");
+  assert.equal(moving.terminalReason, null);
 });
 
-test("Sam entering the pursuer's room causes an immediate failure", () => {
+test("Sam entering the pursuer's room records contact and continues", () => {
   const state = createState(123);
   state.status = "running";
   state.controller = "api";
@@ -490,12 +490,12 @@ test("Sam entering the pursuer's room causes an immediate failure", () => {
   assert.equal(applyDecision(state, { action: "move", target: "archive", reason: "enter killer room" }, "api"), true);
   tick(state, 10);
   assert.equal(state.killer.encountered, true);
-  assert.equal(state.status, "contained");
-  assert.equal(state.terminalReason, "contact");
+  assert.equal(state.status, "running");
+  assert.equal(state.terminalReason, null);
   assert.equal(state.roomId, "archive");
 });
 
-test("pursuer contact ends the run at the current room regardless of pending objective", () => {
+test("pursuer contact is recorded at the current room regardless of pending objective", () => {
   for (const roomId of ["archive", "generator", "exit"] as const) {
     const state = createState(123);
     state.status = "running";
@@ -505,10 +505,37 @@ test("pursuer contact ends the run at the current room regardless of pending obj
     if (roomId === "exit") state.power = true;
     tick(state, 0.01);
     assert.equal(state.killer.encountered, true);
-    assert.equal(state.currentAction, null, roomId);
-    assert.equal(state.status, "contained", roomId);
-    assert.equal(state.terminalReason, "contact", roomId);
+    assert.equal(state.status, "running", roomId);
+    assert.equal(state.terminalReason, null, roomId);
   }
+});
+
+test("fear reaching 100 ends the run, with captured outcome only after contact", () => {
+  const caught = createState(123);
+  caught.status = "running";
+  caught.controller = "api";
+  caught.fear = 99.5;
+  caught.killer.roomId = caught.roomId;
+  tick(caught, 0.01);
+  assert.equal(caught.killer.encountered, true);
+  assert.equal(caught.status, "running");
+  assert.ok(caught.fear >= 99.5, "contact must not lower an already high fear level");
+  tick(caught, 10);
+  assert.equal(caught.status, "contained");
+  assert.equal(caught.terminalReason, "fear");
+  assert.equal(caught.fear, 100);
+  assert.match(caught.outcome, /捕獲/);
+
+  const uncaught = createState(123);
+  uncaught.status = "running";
+  uncaught.controller = "api";
+  uncaught.fear = 99.9;
+  uncaught.killer.roomId = "laboratory";
+  tick(uncaught, 1);
+  assert.equal(uncaught.killer.encountered, false);
+  assert.equal(uncaught.status, "contained");
+  assert.equal(uncaught.terminalReason, "fear");
+  assert.match(uncaught.outcome, /恐怖/);
 });
 
 test("Sam retreats before calming down when the known killer shares an escapable room", () => {
@@ -635,8 +662,8 @@ test("pursuit contact and seeded Tibo events ignore incoming frame size", () => 
       compare(run(0.1, controller, interruptWork), expected);
       compare(run(0.5, controller, interruptWork), expected);
       if (controller === "local") {
-        assert.equal(expected.status, "contained");
-        assert.equal(expected.terminalReason, "contact");
+        assert.ok(["contained", "escaped"].includes(expected.status));
+        assert.ok(["fear", "deadline", "escaped"].includes(expected.terminalReason!));
       }
     }
   }

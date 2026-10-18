@@ -60,12 +60,12 @@ export function createSessionRequest() {
       rooms: ROOMS.map(({ id, clue }) => ({ id, clue })),
       connections: CONNECTIONS,
       goal: "AI-controlled game avatar Sam Altman finds keycard in archive, restores generator, unlocks exit. Avoid fear100 and deadline180. Player is the building entity and sabotages rooms.",
-      killerRules: "Nuko Nuko is a girl killer who pursues Sam through connected rooms. Sam does not know her location until their first encounter. Any contact in the same room immediately ends the game with Sam captured.",
+      killerRules: "Nuko Nuko pursues Sam through connected rooms. Sam does not know her location until their first contact. Contact marks Sam as caught and raises fear, but the simulation continues. Fear reaching 100 after contact ends the run with Sam captured; fear 100 without contact is a player win.",
       helperRules: "Tibo occasionally resets the cooldowns of the four player interventions. Energy, progress and active effects are unchanged.",
-      hideoutRules: "Any room contact with Nuko Nuko immediately ends the run as a subject loss. Sam must avoid sharing a room with her while completing the keycard, power and exit objectives.",
+      hideoutRules: "Room contact with Nuko Nuko marks Sam as caught but does not immediately end the run. Sam can keep moving and working; fear reaching 100 after contact ends the run with Sam captured.",
     }),
     strategicPlan:
-      "You control the fictional game avatar Sam Altman. In Japanese, give a concise 2-sentence escape plan grounded in this facility. You cannot know the killer location before the first encounter. Avoid sharing a room with Nuko Nuko, because contact immediately ends the run; continue securing keycard, power and exit. Your plan will guide Decisions API action selection.",
+      "You control the fictional game avatar Sam Altman. In Japanese, give a concise 2-sentence escape plan grounded in this facility. You cannot know the killer location before the first contact. Avoid Nuko Nuko because contact marks you as caught and raises fear; keep moving and complete the keycard, power and exit objectives. The run ends in capture failure if fear reaches 100 after contact.",
   };
 }
 

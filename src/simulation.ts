@@ -167,7 +167,7 @@ export interface HideoutState {
 }
 export interface GameState {
   status: "waiting" | "running" | "escaped" | "contained";
-  terminalReason: "contact" | "fear" | "deadline" | "escaped" | null;
+  terminalReason: "fear" | "deadline" | "escaped" | null;
   paused: boolean;
   controller: "local" | "api";
   thinking: boolean;
@@ -674,21 +674,19 @@ function encounter(state: GameState): void {
   const killer = state.killer;
   if (isHiding(state) || killer.roomId !== state.roomId ||
       (killer.lastEncounterAt !== null && state.elapsed < killer.lastEncounterAt + 12 - 1e-8)) return;
+  const firstContact = !killer.encountered;
   killer.encountered = true;
   killer.encounterCount += 1;
   killer.lastEncounterAt = state.elapsed;
-  state.fear = Math.min(99, state.fear + 5);
-  state.status = "contained";
-  state.terminalReason = "contact";
-  state.outcome = "ぬこぬこさんがサムに接触した。被験者ロスト。";
-  state.currentAction = null;
-  state.targetRoomId = null;
-  state.progress = 0;
-  state.thinking = false;
+  const fearIncrease = 25 + Math.floor(random(state) * 11);
+  state.fear = Math.max(state.fear, Math.min(99, state.fear + fearIncrease));
+  state.outcome = "ぬこぬこさんがサムに接触。恐怖100に達すると実験終了。";
   log(state, {
     action: "wait",
     target: state.roomId,
-    reason: "ぬこぬこさんがサムに接触。被験者ロスト、実験終了。",
+    reason: firstContact
+      ? `ぬこぬこさんがサムに接触。恐怖+${fearIncrease}、捕獲状態を記録。恐怖100まで実験続行。`
+      : `ぬこぬこさんがサムに再接触。恐怖+${fearIncrease}。`,
   }, "system");
 }
 function worldEvents(state: GameState): void {
@@ -804,7 +802,9 @@ export function tick(state: GameState, dt: number): void {
       state.terminalReason = state.fear >= 100 ? "fear" : "deadline";
       state.outcome =
         state.fear >= 100
-          ? "被験者は恐怖に屈した。封じ込め成功。"
+          ? state.killer.encountered
+            ? "恐怖100に達し、ぬこぬこさんがサムを捕獲。封じ込め成功。"
+            : "被験者は恐怖に屈した。封じ込め成功。"
           : "避難の制限時間を過ぎた。封じ込め成功。";
       state.currentAction = null;
       state.targetRoomId = null;

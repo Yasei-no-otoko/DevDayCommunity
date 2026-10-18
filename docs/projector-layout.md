@@ -58,3 +58,11 @@ Fullscreenボタンのクリック処理から`root.requestFullscreen()`を呼�
 - 390×844のiframeで横はみ出し0件、表示中の操作対象は全て44px以上。スマートフォン実機とFullscreen開始・実キーEsc解除は未検証です。
 - モックしたAPIで停止中の応答保留、再開時の1回適用、camera中の時間・新規要求停止、reset後の遅延応答破棄を8条件で再確認。これは本番モデル通信の検証とは区別します。
 - 隠れ場所と大型Tibo追加後も720p/1080pの主要UI欠けは0件です。Tibo cut-inは各251.30×320、400×470でマップ内に収まり、表示中もゲームは進行します。病棟の「隠れ場所」とサムの隠れ中表示、怪異で追い出した際のフィードバックを確認しました。最終のテストは55件成功、ビルド成功です。
+
+## VILLAGEを参考にした配色（2026-10-18）
+
+1画面の配置・寸法・操作は維持し、冷たいグラファイト、温かいアイボリー、控えめな真鍮色、危険を示す赤へ変更しました。タイトルにはローカルのセリフ体、パネルには細い灰色の罫線を使います。参照画像はゲーム内素材として再配布していません。
+
+- 参照: [Game UI Database: Resident Evil Village](https://www.gameuidatabase.com/gameData.php?id=780)、[Capcom公式マニュアルのタイトル画面](https://game.capcom.com/manual/village/locale/ja/ps4/page/11_1_1.jpg)、[所持品画面](https://game.capcom.com/manual/village/locale/ja/page/41_2_1.jpg)。
+- 施設背景は生成時に一度だけピクセルの彩度を調整します。[Canvas filter](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/filter)はブラウザー互換性に制限があるため使わず、毎フレームの画像処理も避けます。動く人物・選択表示は別に描画します。
+- 1280×720の実ブラウザーでページ寸法も1280×720、ヘッダーと3列の主要パネルが画面内に収まることを確認しました。
