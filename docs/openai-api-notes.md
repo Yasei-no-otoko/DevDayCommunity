@@ -72,3 +72,24 @@ At 13:38–13:40 JST, the published [BLACKSITE Site](https://blacksite-escape-ex
 | Pause during inference | A real Decisions response arriving during a pause was held as “次の行動を受信済み · 再開待ち” at 02:15 remaining. Resuming applied the received move toward the exit. |
 
 The browser's Resource Timing entries established the HTTP results; the game's API details and activity log supplied the request IDs, returned confidence, plan, and applied actions. API errors were empty and the controller stayed in live mode. The source adapter separately requires a successful root Agents turn and validates the named Decisions choice before applying it. No application fix was needed for this verification. These are point-in-time production results, not an availability guarantee or a smartphone-device test. Credentials and session capability tokens are deliberately excluded from this record.
+
+## Sam pursuit and ward hideout live verification on 2026-10-18
+
+The public Site's version 5, source `aced606ab2f3606272e78b4267dc2b63eaccc444`, was tested in Vivaldi from 14:54–14:58 JST. The 1280×720 page showed Sam, the overhead sprites, the ward's hiding-space label, and the right-hand room picker with four icon buttons. Its document also measured 1280×720. The five runtime WebP requests returned 200. The published archive contained 66 files, content hash `sha256:ccffba8e260e5fd41dcee702239c080a1651ece548725be2391a0d4f0e36327f`.
+
+No provider response, model choice, or animation frame was mocked. A browser fetch wrapper recorded only selected metadata while returning the original responses; a native animation-frame counter observed ordinary gameplay. The existing authenticated visitor session was used. API keys and signed session capability tokens are excluded from these records.
+
+| Check | Observed result |
+| --- | --- |
+| Readiness | `/api/status` returned 200 with configured/authenticated both true. |
+| First Agents plan | `/api/session` returned 201 in 13,945 ms, model `gpt-6-astra`, request `req_4006bf7166ea4a81b06f3917df7dceec`. The Japanese plan included the ward's bed hideout and resuming escape objectives. |
+| First experiment | Nine Decisions requests all returned 200 in 236–1,906 ms, model `gpt-6-luna`. Sam collected the keycard, restored power, unlocked the exit and escaped after 00:54 of simulation time, fear 24, with no player interference. Final request `req_85666ef2395345b5a4cb2be47ce5730d`. |
+| Pursuer knowledge | Requests omitted `knownKiller` before first contact and included it after contact. The request snapshots carried the new `hideout` contract. |
+| Follow-up Agents plan | A reset created a new live plan: 201 in 10,339 ms, request `req_5f3573f5f75f4fdba29b75e2be36f947`. |
+| Live ward choice | After four player lock actions interrupted movement, Decisions chose `move ward`, then `hide ward` from the legal choices. The hide response was 200 in 1,263 ms, request `req_f3d0db4ca549460b9646dedc37e6e0f6`, confidence 0.61. The UI showed “隠れる / 隔離病棟” at 02:16 remaining. |
+| Counterplay | A player apparition in the ward produced “サムを隠れ場所から追い出しました”. The following live Decisions request reported the consumed hide cooldown, `completed: 0`, and no lost-trail time, then selected movement toward the archive. |
+| Tibo | The live cut-in appeared at 02:34 remaining, measured 251.30×320px, with the referenced Tibo image loaded. |
+| Follow-up completion | All 21 Decisions requests returned 200 in 211–1,696 ms. After the interrupted hide, Sam recovered both objectives and escaped at 01:47 elapsed, with five interventions and fear 71/100. Final request `req_62620416e353423ca4450b43acb32100`. The UI and browser reported no errors. |
+| Cleanup | Reset deleted both tested provider sessions with 200 responses. The final cleanup request was `req_7d179e578b724e749efd98227009073f`. |
+
+The follow-up's player side used bounded UI automation: at most four lock clicks, followed by one apparition click after observing the model-selected hide. It used the published buttons and did not change the simulation, legal choices, or API results. This is an integration test; it does not establish how enjoyable first-time human players find the game. API choices can choose a different valid escape route in another run.
