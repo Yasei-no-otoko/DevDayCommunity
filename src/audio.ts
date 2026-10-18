@@ -1,7 +1,8 @@
 import { CONNECTIONS, isHiding, type GameState, type SabotageType } from "./simulation.ts";
 
-/** Locally bundled CC0 recordings; provenance is in public/audio/CREDITS.txt. */
+/** Bundled user-provided music and CC0 effects; see public/audio/CREDITS.txt. */
 export const AUDIO_SAMPLES = {
+  bgm: "/audio/A_dark,_suspenseful__%233-1792305773451.mp3",
   ambience: "/audio/ambience.mp3",
   blackout: "/audio/blackout.mp3",
   lock: "/audio/lock.mp3",
@@ -21,25 +22,29 @@ export function createGameAudio(options: { onError?: (message: string) => void }
   let enabled = false;
   let disposed = false;
   let active = false;
+  let musicActive = false;
   let epoch = 0;
   let loading: Promise<void> | undefined;
   let loadAbort: AbortController | undefined;
   const buffers = new Map<Sample, AudioBuffer>();
   const voices = new Set<Voice>();
   let ambience: Voice | undefined;
+  let music: Voice | undefined;
   let previous: Snapshot | undefined;
   let nextFootstep = 0;
   let nextThreat = 0;
   let wasMoving = false;
 
-  function stopVoices() {
+  function stopVoices(keepMusic = false) {
     for (const voice of voices) {
+      if (keepMusic && voice === music) continue;
       voice.source.onended = null;
       try { voice.source.stop(); } catch { /* Already ended. */ }
       voice.source.disconnect();
       voice.gain.disconnect();
+      voices.delete(voice);
     }
-    voices.clear();
+    if (!keepMusic) music = undefined;
     ambience = undefined;
   }
   function cancelLoad() {
@@ -50,7 +55,7 @@ export function createGameAudio(options: { onError?: (message: string) => void }
   }
   function play(sample: Sample, volume: number, duration?: number, loop = false): Voice | undefined {
     const buffer = buffers.get(sample);
-    if (!enabled || !active || disposed || !context || !master || !buffer || context.state !== "running" || voices.size >= 12) return;
+    if (!enabled || !(sample === "bgm" ? musicActive : active) || disposed || !context || !master || !buffer || context.state !== "running" || voices.size >= 12) return;
     const source = context.createBufferSource();
     const gain = context.createGain();
     source.buffer = buffer;
@@ -72,6 +77,7 @@ export function createGameAudio(options: { onError?: (message: string) => void }
       gain.disconnect();
       voices.delete(voice);
       if (ambience === voice) ambience = undefined;
+      if (music === voice) music = undefined;
     };
     source.start();
     if (!loop) source.stop(now + length);
@@ -140,7 +146,7 @@ export function createGameAudio(options: { onError?: (message: string) => void }
       return false;
     }
   }
-  function update(state: GameState, canPlay: boolean) {
+  function update(state: GameState, canPlay: boolean, musicCanPlay = canPlay) {
     if (disposed) return;
     const snapshot: Snapshot = {
       encounters: state.killer.encounterCount,
@@ -148,9 +154,13 @@ export function createGameAudio(options: { onError?: (message: string) => void }
       keycard: state.keycard,
       power: state.power,
     };
+    musicActive = musicCanPlay && state.status === "running" && !state.paused;
+    if (musicActive && enabled) {
+      if (!music) music = play("bgm", 0.45, undefined, true);
+    } else stopVoices();
     active = canPlay && state.status === "running" && !state.paused && !state.thinking;
     if (!active || !enabled) {
-      stopVoices();
+      stopVoices(musicActive && enabled);
       wasMoving = false;
       nextFootstep = state.elapsed;
       nextThreat = state.elapsed;
@@ -185,6 +195,7 @@ export function createGameAudio(options: { onError?: (message: string) => void }
   function reset() {
     enabled = false;
     active = false;
+    musicActive = false;
     cancelLoad();
     stopVoices();
     previous = undefined;

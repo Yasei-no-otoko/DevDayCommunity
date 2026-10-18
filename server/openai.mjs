@@ -119,8 +119,10 @@ export function createOpenAIAdapter({
       return { ...result, model: AGENT_MODEL, requestId };
     },
 
-    async decide({ sessionId, snapshot, allowedDecisions }) {
+    async decide({ sessionId, actor = "escape", snapshot, allowedDecisions }) {
+      if (actor !== "escape" && actor !== "killer") throw new Error("Invalid decision actor.");
       const input = JSON.stringify({
+        actor,
         session_id: sessionId,
         current_state: snapshot,
         allowed_decisions: allowedDecisions.map(
@@ -134,8 +136,9 @@ export function createOpenAIAdapter({
           {
             type: "choice",
             name: "action",
-            instructions:
-              "Choose the allowed action that best advances the player's escape objective, using the current strategy and state when provided. Prefer actions that use relevant clues, keycards, or power resources when the state supports them. Avoid repeating recent searches or waiting unless necessary. Return the exact supplied action id. Never invent an option, and do not claim an action has already happened.",
+            instructions: actor === "killer"
+              ? "You control Nuko Nuko, the pursuer. Trap Sam by selecting an allowed move with minimum total weighted travel time to the supplied goal. Never wait while a shortest move is available. If Sam's trail is lost, only use the supplied patrol goal; do not infer his hidden location. Return the exact supplied action id."
+              : "Choose the allowed action that best advances the player's escape objective, using the current strategy and state when provided. Prefer actions that use relevant clues, keycards, or power resources when the state supports them. Avoid repeating recent searches or waiting unless necessary. Return the exact supplied action id. Never invent an option, and do not claim an action has already happened.",
             choices: allowedDecisions.map(({ id, label, description }) => ({
               value: id,
               description: `${label}: ${description}`,

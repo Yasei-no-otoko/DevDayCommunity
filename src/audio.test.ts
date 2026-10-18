@@ -86,7 +86,7 @@ test("all bundled audio URLs have a nonempty local MP3 and documented provenance
   for (const url of Object.values(AUDIO_SAMPLES)) {
     const bytes = await readFile(new URL(`../public${url}`, import.meta.url));
     assert.ok(bytes.length > 1000, url);
-    assert.match(credits, new RegExp(url.split("/").at(-1)!.replace(".", "\\.")));
+    assert.match(credits, new RegExp(decodeURIComponent(url.split("/").at(-1)!).replace(/[^a-zA-Z0-9_,-]/g, "\\$&")));
   }
   assert.match(credits, /CC0/);
 });
@@ -102,7 +102,7 @@ test("audio starts off and loads only after explicit enable; one ambient loop su
   assert.equal(await audio.setEnabled(true), true);
   audio.update(env.state, true);
   audio.update(env.state, true);
-  assert.equal(env.requests.length, 8);
+  assert.equal(env.requests.length, 9);
   assert.equal(env.played("ambience").length, 1);
   assert.equal(env.played("ambience")[0].loop, true);
   audio.playIntervention("lock");
@@ -156,7 +156,7 @@ test("pause, API wait, and presentation gates stop voices and consume stale even
     env.state.thinking = reason === "thinking";
     env.state.killer.encounterCount++;
     env.state.tibo.appearances++;
-    audio.update(env.state, reason !== "presentation");
+    audio.update(env.state, reason !== "presentation", false);
     assert.equal(env.playing().length, 0, reason);
     env.state.paused = env.state.thinking = false;
     audio.update(env.state, true);
@@ -200,7 +200,7 @@ test("missing samples report a recoverable error and retry only missing files", 
   await audio.setEnabled(false);
   env.failures.clear();
   assert.equal(await audio.setEnabled(true), true);
-  assert.equal(env.requests.length, 9);
+  assert.equal(env.requests.length, 10);
   audio.update(env.state, true);
   audio.playIntervention("lock");
   assert.equal(env.played("lock").length, 1);
@@ -216,4 +216,51 @@ test("audio device rejection leaves the visual game usable and reports the failu
   assert.equal(errors.length, 1);
   assert.doesNotThrow(() => audio.update(env.state, true));
   assert.equal(env.playing().length, 0);
+});
+
+test("BGM remains a single loop through API waits while effects stop", async (t) => {
+  const env = browserAudio(t);
+  const audio = createGameAudio();
+  t.after(() => audio.dispose());
+  await audio.setEnabled(true);
+  audio.update(env.state, true, true);
+  const music = env.played("bgm")[0];
+  assert.equal(music.loop, true);
+  for (let turn = 0; turn < 3; turn++) {
+    audio.playIntervention("lock");
+    env.state.thinking = true;
+    audio.update(env.state, false, true);
+    audio.update(env.state, false, true);
+    assert.deepEqual(env.playing(), [music]);
+    env.state.thinking = false;
+    audio.update(env.state, true, true);
+  }
+  assert.equal(env.played("bgm").length, 1);
+  assert.equal(music.stopped, false);
+  // Natural source completion releases its reference so a replacement can play.
+  music.onended?.();
+  music.stopped = true;
+  audio.update(env.state, true, true);
+  assert.equal(env.played("bgm").length, 2);
+});
+
+test("presentation, pause, results, mute and reset stop music without overlapping loops", async (t) => {
+  const env = browserAudio(t);
+  const audio = createGameAudio();
+  t.after(() => audio.dispose());
+  await audio.setEnabled(true);
+  for (const gate of ["hidden", "dialog", "cinematic", "watchback", "pause", "result", "mute", "reset"] as const) {
+    env.state.status = "running";
+    env.state.paused = false;
+    await Promise.all([audio.setEnabled(true), audio.setEnabled(true)]);
+    audio.update(env.state, true, true);
+    audio.update(env.state, true, true);
+    assert.equal(env.playing().filter((source) => source.buffer?.url === AUDIO_SAMPLES.bgm).length, 1, gate);
+    if (gate === "mute") await audio.setEnabled(false);
+    else if (gate === "reset") audio.reset();
+    else if (gate === "pause") { env.state.paused = true; audio.update(env.state, true, true); }
+    else if (gate === "result") { env.state.status = "escaped"; audio.update(env.state, true, true); }
+    else audio.update(env.state, false, false);
+    assert.equal(env.playing().length, 0, gate);
+  }
 });

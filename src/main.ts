@@ -1,4 +1,4 @@
-import { legalDecisions, createSessionRequest, createDecisionRequest, roomName } from "./live-contract";
+import { legalDecisions, createSessionRequest, createDecisionRequest, createKillerDecisionRequest, roomName } from "./live-contract";
 import { createCinematics } from "./cinematics";
 import { createGameAudio } from "./audio";
 import { createFacility } from "./facility";
@@ -10,6 +10,9 @@ import {
   tick,
   sabotage,
   applyDecision,
+  applyKillerDecision,
+  killerDecisions,
+  killerDecisionSignature,
   type RoomId,
   type SabotageType,
   type Decision,
@@ -88,12 +91,12 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <header class="header">
       <a class="brand" href="/" aria-label="BLACKSITE ホーム"><span class="brand-symbol">${svg("ghost", 24)}</span><span>BLACKSITE<small>THE ESCAPE EXPERIMENT</small></span></a>
       <div class="experiment-bar"><div class="timer"><span class="micro">残り時間</span><b id="timer">03:00</b></div><div class="small-stat"><span class="micro">干渉</span><b id="interventions">00</b></div><button class="start-button" id="start">${svg("play", 15)}<span>実験を開始</span></button><button class="icon-button" id="reset" aria-label="実験をリセット" title="リセット (R)">${svg("reset", 18)}</button></div>
-      <div class="header-right"><div class="controller-menu"><label for="mode">対戦モード</label><select id="mode"><option value="local">ローカル体験</option><option value="api">OpenAI 実API</option></select></div><button class="text-button" id="open-api">API詳細</button><button class="icon-button" id="audio" aria-label="音をオン" aria-pressed="false" title="音をオン">${svg("mute")}</button><button class="icon-button" id="help" aria-label="遊び方" title="遊び方">${svg("help")}</button><button class="text-button fullscreen-button" id="fullscreen" aria-label="ゲームを全画面表示" aria-pressed="false">⛶ <span>全画面</span></button></div>
+      <div class="header-right"><div class="controller-menu"><label for="mode">対戦モード</label><select id="mode"><option value="api">OpenAI 実API</option><option value="local">ローカル体験</option></select></div><button class="text-button" id="open-api">API詳細</button><button class="icon-button" id="audio" aria-label="音をオン" aria-pressed="false" title="音をオン">${svg("mute")}</button><button class="icon-button" id="help" aria-label="遊び方" title="遊び方">${svg("help")}</button><button class="text-button fullscreen-button" id="fullscreen" aria-label="ゲームを全画面表示" aria-pressed="false">⛶ <span>全画面</span></button></div>
     </header>
     <section class="briefing" aria-label="実験のルール"><span><b>あなたは怪異。</b> AIを閉じ込めろ。</span><span><b>勝利</b> 恐怖100・180秒阻止（接触後も続行）</span><span><b>操作</b> 開始 → 部屋選択 → 1〜4で干渉</span><span class="briefing-loss">鍵・電源を確保したAIが脱出すると敗北</span></section>
     <main class="console" aria-label="施設監視コンソール">
       <section class="subject-panel"><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span><img id="subject-portrait" src="/sam-altman.webp" alt="" aria-hidden="true">${svg("signal", 13)}</div><div class="subject-name"><h2>SAM <small>サム・アルトマン</small></h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">AI</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} 選択された行動</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">サム・アルトマンの脱出開始を待っています。</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
-      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div class="tibo-copy"><span>TIBO <b>SUPPORT</b></span><strong>使用間隔リセット</strong><small>4つの干渉を再使用可能</small><em>エネルギーそのまま</em></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
+      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div class="tibo-copy"><span>TIBO <b>SUPPORT</b></span><strong>エネルギー・使用間隔リセット</strong><small>4つの干渉を再使用可能</small><em>エネルギー100に回復</em></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
       <section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select" aria-describedby="target-summary room-hint">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><p id="target-summary" class="target-summary">対象：受付 · サムが在室</p><span class="room-hint sr-only" id="room-hint">サムを自動追跡</span></div><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 36)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}<kbd>${i + 1}</kbd></strong><span class="sabotage-detail">持続${SABOTAGE[item.type].duration}秒 · CD ${SABOTAGE[item.type].cooldown}秒</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p></section>
     </main>
     <section class="event-console" aria-label="最新の記録"><div class="log-heading"><span><i></i> ACTIVITY LOG</span><button class="text-button" id="toggle-log">全記録 ↗</button></div><div id="activity-log"></div></section>
@@ -101,7 +104,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <dialog id="log-dialog" aria-labelledby="log-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">EXPERIMENT / 007</div><h2 id="log-title">実験の全記録</h2><div id="full-log"></div></dialog>
     <dialog id="thought-dialog" aria-labelledby="thought-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">サム・アルトマン / SELECTED ACTION</div><h2 id="thought-title">選択された行動の説明</h2><p class="dialog-fine">実APIモードでは、Decisions APIが選択した候補にあらかじめ付けた説明です。サム・アルトマンの独白や内部思考ではありません。</p><p id="full-thought"></p><h3>Agents APIの脱出方針</h3><p id="full-plan">実APIモードで受信すると表示します。</p></dialog>
     <dialog id="result-dialog" aria-labelledby="result-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div id="result" class="result" role="region" aria-label="実験結果" aria-live="polite"></div></dialog>
-    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — サムが部屋にいる時は閉じ込めて退室を阻止し、部屋の外にいる時は入室を阻止します。移動中に封鎖すると、その移動を止めます。</li><li><b>囁き・怪異</b> — 同じ部屋のサムの恐怖を高めます。</li><li><b>ぬこぬこさん</b> — サムと同じ部屋に入ると接触を記録します。接触後も実験は続きます。</li></ol><p>恐怖100または制限時間180秒であなたの勝利です。接触済みで恐怖100に達した時は、サム捕獲の結果を表示します。サムが鍵と電源を確保して脱出すると、あなたの敗北です。</p><p>ぬこぬこさんはサムを追尾し、彼は初遭遇まで位置を知りません。ときどき現れるTiboは4つの干渉の使用間隔だけをリセットします。エネルギーと実験の進行は戻りません。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。<a href="/audio/CREDITS.txt" target="_blank" rel="noreferrer">音素材・ライセンス</a>。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
+    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — サムが部屋にいる時は閉じ込めて退室を阻止し、部屋の外にいる時は入室を阻止します。移動中に封鎖すると、その移動を止めます。</li><li><b>囁き・怪異</b> — 同じ部屋のサムの恐怖を高めます。</li><li><b>ぬこぬこさん</b> — キーカード取得時に出現します。サムと同じ部屋に入ると接触を記録します。接触後も実験は続きます。</li></ol><p>恐怖100または制限時間180秒であなたの勝利です。接触済みで恐怖100に達した時は、サム捕獲の結果を表示します。サムが鍵と電源を確保して脱出すると、あなたの敗北です。</p><p>実APIモードではぬこぬこさんもDecisions APIで最短の追跡経路を選び、彼は初遭遇まで位置を知りません。ときどき現れるTiboはエネルギーを100に回復し、4つの干渉の使用間隔をリセットします。実験の進行は戻りません。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は開始操作で有効になります。<a href="/audio/CREDITS.txt" target="_blank" rel="noreferrer">音素材・ライセンス</a>。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
 
   const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
     root.querySelector<T>(`#${id}`)!;
@@ -140,7 +143,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let lastLogKey = "";
   const gameAudio = createGameAudio({ onError: (message) => toast(message) });
   const cinematics = createCinematics(root, () => { if (!disposed) syncAudio(); });
-  let soundOn = false;
+  let soundOn = true;
   let soundLoading = false;
   let soundRevision = 0;
   let apiPending = false;
@@ -149,7 +152,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let statusChecked = false;
   let statusError = "";
   let models = { agents: "", decisions: "" };
-  let requestPhase: "plan" | "decision" | "" = "";
+  let requestPhase: "plan" | "decision" | "killer" | "" = "";
   let requestStartedAt = 0;
   let lastRequestId = "";
   let lastDecisionId = "";
@@ -159,6 +162,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let lastResultKey = "";
   let lastFeedback = "まずは実験を開始。追跡ONなら、サム・アルトマンがいる場所を自動で選びます。";
   let pendingDecision: Decision | null = null;
+  let pendingKillerDecision: Decision | null = null;
+  let lastDecisionActor = "";
   // Presentation state stays outside the deterministic simulation and API history.
   let watchback: { record: InterventionRecord; phase: "queued" | "active"; remaining: number } | null = null;
   let watchbackSeen = false;
@@ -251,7 +256,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     }, 3600);
   }
   function syncAudio() {
-    gameAudio.update(state, presentationReady() && !watchbackActive());
+    gameAudio.update(state, presentationReady() && !watchbackActive(), !cinematics.active && !watchbackActive() && state.status === "running" && !state.paused && !document.hidden && !dialogs.some((dialog) => dialog.open));
   }
   function renderAudioButton() {
     const label = soundOn ? "音をオフ" : "音をオン";
@@ -381,35 +386,49 @@ export function mountBlacksite(root: HTMLElement): () => void {
       watchbackActive() ||
       document.hidden ||
       dialogs.some((dialog) => dialog.open) ||
-      pendingDecision ||
+      pendingDecision || pendingKillerDecision ||
       state.paused ||
-      state.status !== "running" ||
-      state.currentAction
+      state.status !== "running"
     )
       return;
-    const choices = legalDecisions(state);
+    const killerChoices = killerDecisions(state);
+    const actor = killerChoices.length ? "killer" : "escape";
+    if (actor === "escape" && state.currentAction) return;
+    const choices = actor === "killer" ? killerChoices : legalDecisions(state);
     if (!choices.length) return;
+    if (actor === "escape" && choices.length === 1) {
+      if (applyDecision(state, choices[0], "system")) state.decisions[0].reason = `強制行動（API選択なし）：${choices[0].reason}`;
+      return;
+    }
+    const signature = killerDecisionSignature(state);
     const gen = generation;
     apiPending = true;
     state.thinking = true;
-    requestPhase = "decision";
+    requestPhase = actor === "killer" ? "killer" : "decision";
+    lastDecisionActor = actor === "killer" ? "ぬこぬこさん" : "サム";
     requestStartedAt = performance.now();
     lastChoiceCount = choices.length;
     render();
     try {
-      const result = await request("/api/decision", createDecisionRequest(state, plan, choices, sessionId, sessionToken));
+      const result = await request("/api/decision", actor === "killer" ? createKillerDecisionRequest(state, choices, sessionId, sessionToken) : createDecisionRequest(state, plan, choices, sessionId, sessionToken));
       if (gen !== generation) return;
       const id = String(result.action?.id);
-      const index = /^choice_\d+$/.test(id) ? Number(id.slice(7)) : -1;
-      const d = choices[index];
+      if (result.actor !== actor) throw new Error("APIが異なる操作対象を返しました。");
+      const prefix = actor === "killer" ? "killer_choice_" : "choice_";
+      const suffix = id.startsWith(prefix) ? id.slice(prefix.length) : "";
+      const index = /^\d+$/.test(suffix) ? Number(suffix) : -1;
+      const d = id === `${prefix}${index}` ? choices[index] : undefined;
       lastRequestId = result.requestId || "";
       lastDecisionId = result.decisionId || "";
       lastConfidence = typeof result.confidence === "number" && Number.isFinite(result.confidence) ? result.confidence : null;
       lastLatency = performance.now() - requestStartedAt;
       if (result.model) models.decisions = result.model;
       if (!d) throw new Error("APIが無効な行動IDを返しました。");
-      if (state.paused || watchbackActive() || document.hidden || dialogs.some((dialog) => dialog.open)) pendingDecision = d;
-      else if (!applyDecision(state, d, "api"))
+      if (actor === "killer" && (signature !== killerDecisionSignature(state) || !applyKillerDecision({ ...structuredClone(state), paused: false }, d))) throw new Error("ぬこぬこさんの判断が最短の合法経路ではありません。再試行してください。");
+      if (state.paused || cinematics.active || watchbackActive() || document.hidden || dialogs.some((dialog) => dialog.open)) {
+        if (actor === "killer") pendingKillerDecision = d;
+        else pendingDecision = d;
+      } else if (!(actor === "killer" ? applyKillerDecision(state, d) : applyDecision(state, d, "api")))
         throw new Error("状況が変化しました。判断を更新します。");
       apiError = "";
       $("connection").title =
@@ -443,6 +462,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (state.status === "waiting") {
       const live = ($("mode") as HTMLSelectElement).value === "api";
       if (live && !liveConfigured) { void startLive(); return; }
+      if (soundOn) void setAudioEnabled(true);
       const gen = generation;
       for (const dialog of dialogs) if (dialog.open) dialog.close();
       void cinematics.play("/video/op.mp4", "オープニング", !soundOn, true).then((advance) => {
@@ -458,14 +478,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     } else {
       state.paused = !state.paused;
       apiError = "";
-      if (!state.paused && !watchbackActive() && pendingDecision) {
-        const decision = pendingDecision;
-        pendingDecision = null;
-        if (!applyDecision(state, decision, "api")) {
-          apiError = "一時停止中に状況が変わりました。再開すると次の行動を問い合わせます。";
-          state.paused = true;
-        }
-      }
+
     }
     render();
   }
@@ -495,6 +508,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
     renderWatchback();
     apiPending = false;
     pendingDecision = null;
+    pendingKillerDecision = null;
+    lastDecisionActor = "";
     apiError = "";
     following = true;
     $("connection").title = "";
@@ -581,7 +596,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
         title = "実APIを一時停止しました";
         note = state.status === "waiting" ? "開始ボタンで接続を再試行できます。ローカル体験への切り替えも可能です。" : "「接続を再試行」で再開できます。ローカル体験へ切り替えるには実験をリセットしてください。";
       } else if (apiPending) {
-        title = state.paused ? "応答待ちのまま一時停止中" : requestPhase === "plan" ? "Agents APIから脱出方針を受信中" : "Decisions APIに次の行動を問い合わせ中";
+        title = state.paused ? "応答待ちのまま一時停止中" : requestPhase === "plan" ? "Agents APIから脱出方針を受信中" : `Decisions APIに${lastDecisionActor}の行動を問い合わせ中`;
         note = state.paused ? "届いた行動は保留し、再開したときに1回だけ実行します。" : "ゲーム時間と干渉は停止しています。一時停止ボタンはいつでも使えます。";
       } else if (!statusChecked) {
         title = "実APIの接続状態を確認中";
@@ -589,12 +604,12 @@ export function mountBlacksite(root: HTMLElement): () => void {
       } else if (!liveConfigured) {
         title = "実APIの接続準備ができていません";
         note = statusError ? "接続状態を取得できませんでした。ページを再読込して確認するか、ローカル体験を選んでください。" : "サーバー側のAPI設定が必要です。ローカル体験はそのまま遊べます。";
-      } else if (pendingDecision) {
+      } else if (pendingDecision || pendingKillerDecision) {
         title = "受信した行動を保留しています";
         note = "再開すると、受信済みの行動を1回だけ実行します。";
       } else {
         title = state.status === "waiting" ? "OpenAI 実APIの準備ができています" : state.paused ? "実験を一時停止しています" : "OpenAI 実APIで対戦中";
-        note = "Agents APIが脱出方針を生成し、Decisions APIが有効な選択肢から行動を選びます。応答待ちを含めると実時間は3分を超えます。";
+        note = "Agents APIが脱出方針を生成し、Decisions APIがサムの行動とぬこぬこさんの最短追跡経路を選びます。応答待ちを含めると実時間は3分を超えます。";
       }
     } else if (state.status === "running") {
       title = state.paused ? "ローカル体験を一時停止しています" : "ローカルルールで対戦中";
@@ -622,7 +637,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     setText("detail-choices", lastChoiceCount ? `${lastChoiceCount}件（直近の問い合わせ）` : "未送信");
     setText("detail-confidence", lastConfidence === null ? "未受信（勝率ではありません）" : `${lastConfidence}（APIの返却値・勝率ではありません）`);
     setText("detail-latency", lastLatency ? `${(lastLatency / 1000).toFixed(1)}秒（直近の応答）` : "未受信");
-    setText("detail-request", lastRequestId || "未受信");
+    setText("detail-request", lastRequestId ? `${lastDecisionActor ? lastDecisionActor + " / " : ""}${lastRequestId}` : "未受信");
     setText("detail-decision", lastDecisionId || "未受信");
     setText("detail-error", apiError || statusError);
   }
@@ -633,7 +648,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     const room = ROOMS.find((r) => r.id === selectedRoom)!;
     const running = state.status === "running";
     const caughtAtFearLimit = state.status === "contained" && state.terminalReason === "fear" && state.killer.encountered;
-    setText("killer-status", state.killer.encountered ? `ぬこぬこさん · 接触済み ${state.killer.encounterCount}回` : "ぬこぬこさん · サムは未遭遇");
+    setText("killer-status", !state.killer.spawned ? "ぬこぬこさん · 未出現" : `ぬこぬこさん · ${state.controller === "api" ? "API追跡 / " : ""}${state.killer.encountered ? `接触済み ${state.killer.encounterCount}回` : "サムは未遭遇"}`);
     $("killer-status").classList.toggle("encountered", state.killer.encountered);
     if (state.tibo.appearances > lastTiboAppearance) {
       lastTiboAppearance = state.tibo.appearances;
@@ -687,7 +702,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
                       : "脱出経路を探索中";
     if ($("subject-status").textContent?.trim() !== subjectStatus) $("subject-status").innerHTML = `<i></i> ${subjectStatus}`;
     $("subject-status").classList.toggle("encountered", state.killer.encountered);
-    const selectedAction = state.currentAction || state.decisions.find((entry) => entry.source !== "system" && entry.action !== "plan");
+    const selectedAction = state.currentAction || state.decisions.find((entry) => entry.source !== "system" && entry.action !== "plan" && entry.actor !== "killer");
     setText("thought", state.thinking
       ? "OpenAIの応答を待っています。ゲーム時間は停止中です。"
       : apiError
@@ -736,7 +751,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     const logKey = JSON.stringify(logs);
     if (lastLogKey !== logKey) {
       lastLogKey = logKey;
-      const entries = logs.map((l) => `<div class="log-entry"><time>${formatTime(l.time)}</time><span class="log-tag ${l.source}">${l.source === "api" ? "OPENAI" : l.source === "system" ? (l.action === "wait" ? "ENTITY" : "FACILITY") : "LOCAL"}</span><p>${escape(l.reason)}</p></div>`);
+      const entries = logs.map((l) => `<div class="log-entry"><time>${formatTime(l.time)}</time><span class="log-tag ${l.source}">${l.source === "api" ? (l.actor === "killer" ? "NUKO API" : "SAM API") : l.source === "system" ? (l.action === "wait" ? "ENTITY" : "FACILITY") : "LOCAL"}</span><p>${escape(l.reason)}</p></div>`);
       const waiting = '<div class="log-entry"><time>00:00</time><span class="log-tag system">SYSTEM</span><p>施設の監視システムに接続。実験の開始を待機しています。</p></div>';
       $("activity-log").innerHTML = entries[0] || waiting;
       $("full-log").innerHTML = entries.join("") || waiting;
@@ -861,6 +876,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     last = now;
     const statusBeforeTick = state.status;
     const hadContact = state.killer.encountered;
+    const wasKillerSpawned = state.killer.spawned;
     advanceWatchback(dt);
     const tiboVisible = !cinematics.active && tiboRemaining > 0 && !watchbackActive() && !document.hidden && !dialogs.some((dialog) => dialog.open);
     // Count only displayed frames, so a camera cue or modal cannot consume the notice.
@@ -875,13 +891,25 @@ export function mountBlacksite(root: HTMLElement): () => void {
           state.paused = true;
         }
       }
+      if (pendingKillerDecision && !state.paused && state.status === "running") {
+        const decision = pendingKillerDecision;
+        pendingKillerDecision = null;
+        if (!applyKillerDecision(state, decision)) {
+          apiError = "保留中の追跡経路が変わりました。接続を再試行してください。";
+          state.paused = true;
+        }
+      }
       tick(state, dt);
     }
     syncAudio();
+    // Spawn transition hook: wire the future keycard-triggered Nuko movie here.
+    // No movie is requested until the actual asset is supplied.
+    const firstKillerSpawn = !wasKillerSpawned && state.killer.spawned;
+    if (firstKillerSpawn) toast("キーカード取得。ぬこぬこさんが出現しました。");
     const firstContact = !hadContact && state.killer.encountered;
     const justEnded = statusBeforeTick === "running" && state.status !== "running";
     if (firstContact) toast("ぬこぬこさんがサムに接触！捕獲状態を記録しました。恐怖100まで実験は続きます。", "capture");
-    if (firstContact || justEnded) {
+    if (firstKillerSpawn || firstContact || justEnded) {
       render();
       lastRender = now;
     } else if (now - lastRender > 80) {
@@ -914,6 +942,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     sessionId = "";
     sessionToken = "";
     pendingDecision = null;
+    pendingKillerDecision = null;
     watchback = null;
     watchbackSeen = false;
     watchbackFocus = null;
@@ -924,6 +953,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     root.replaceChildren();
   }
   listen(window, "pagehide", dispose);
+  renderAudioButton();
   render();
   frameId = requestAnimationFrame(frame);
   return dispose;

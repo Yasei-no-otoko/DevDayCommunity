@@ -3,8 +3,8 @@ import { readFile, writeFile, mkdir, rm, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { resolve, dirname } from "node:path";
-import { createState, applyDecision, sabotage, tick } from "../src/simulation.ts";
-import { legalDecisions, createSessionRequest, createDecisionRequest } from "../src/live-contract.ts";
+import { createState, applyDecision, applyKillerDecision, killerDecisions, sabotage, tick } from "../src/simulation.ts";
+import { legalDecisions, createSessionRequest, createDecisionRequest, createKillerDecisionRequest } from "../src/live-contract.ts";
 
 export const SITE_ORIGIN = "https://blacksite-escape-experiment.yasei-no-otoko.chatgpt.site";
 export const MAX_AGE_MS = 6 * 60 * 60 * 1000;
@@ -137,9 +137,18 @@ export async function runLiveDemo({ identity, fetchImpl, now = Date.now }) {
   let sessionId, sessionToken;
   let failure, receipt;
   const decisions = [];
+  const killerDecisionsApplied = [];
   let intervention;
   let postInterventionDecision = false;
   let moved = false;
+  function advance(dt) {
+    tick(state, dt);
+    for (const trace of killerDecisionsApplied) {
+      if (!trace.completed && state.killer.roomId === trace.target && state.killer.targetRoomId === null) {
+        trace.completed = { room: state.killer.roomId, elapsed: state.elapsed };
+      }
+    }
+  }
   async function request(path, { method = "GET", body, cleanup = false } = {}) {
     const budget = cleanup ? REQUEST_TIMEOUT_MS : Math.min(REQUEST_TIMEOUT_MS, RUN_TIMEOUT_MS - (now() - startedAt));
     requireValue(budget > 0, "live_run_timeout");
@@ -175,23 +184,44 @@ export async function runLiveDemo({ identity, fetchImpl, now = Date.now }) {
     }
     requireValue(session.status === 201 && session.data?.mode === "live" && session.data.terminalSuccess === true && sessionId && sessionToken && typeof session.data.outputText === "string" && session.data.outputText.trim() && requestId(session.data.requestId), "agents_live_response_invalid");
     const plan = session.data.outputText;
-    for (let index = 0; index < 8 && state.status === "running"; index++) {
+    for (let index = 0; index < 12 && state.status === "running"; index++) {
       const choices = legalDecisions(state);
       requireValue(choices.length > 0, "no_legal_live_choices");
+      if (choices.length === 1) {
+        requireValue(applyDecision(state, { ...choices[0], reason: "強制行動（API選択なし）" }, "system"), "forced_decision_not_applied");
+        for (let steps = 0; state.currentAction && state.status === "running" && steps < 600; steps++) advance(0.1);
+        continue;
+      }
       const body = createDecisionRequest(state, plan, choices, sessionId, sessionToken);
       const followsLock = Boolean(intervention && body.snapshot.locks[intervention.room] > state.elapsed);
       const before = summary(state);
       const response = await request("/api/decision", { method: "POST", body });
       const result = response.data;
-      requireValue(response.status === 200 && result?.mode === "live" && requestId(result.requestId), "decisions_live_response_invalid");
+      requireValue(response.status === 200 && result?.mode === "live" && result.actor === "escape" && requestId(result.requestId), "decisions_live_response_invalid");
       requireValue(result.confidence === null || (typeof result.confidence === "number" && Number.isFinite(result.confidence) && result.confidence >= 0 && result.confidence <= 1), "decision_confidence_invalid");
       const choiceIndex = body.allowedDecisions.findIndex((choice) => choice.id === result.action?.id);
       requireValue(choiceIndex >= 0, "decision_outside_legal_choices");
       const choice = choices[choiceIndex];
       requireValue(applyDecision(state, choice, "api"), "decision_not_applied");
       requireValue(state.decisions[0]?.source === "api", "decision_source_invalid");
+      const pursuitChoices = killerDecisions(state);
+      if (pursuitChoices.length > 1) {
+        requireValue(state.keycard === true && state.killer.spawned === true, "killer_spawn_condition_invalid");
+        const killerBody = createKillerDecisionRequest(state, pursuitChoices, sessionId, sessionToken);
+        const killerBefore = { room: state.killer.roomId, target: state.killer.targetRoomId, elapsed: state.elapsed, keycard: state.keycard, spawned: state.killer.spawned };
+        const killerResponse = await request("/api/decision", { method: "POST", body: killerBody });
+        const killerResult = killerResponse.data;
+        requireValue(killerResponse.status === 200 && killerResult?.mode === "live" && killerResult.actor === "killer" && requestId(killerResult.requestId), "killer_live_response_invalid");
+        requireValue(killerResult.confidence === null || (typeof killerResult.confidence === "number" && Number.isFinite(killerResult.confidence) && killerResult.confidence >= 0 && killerResult.confidence <= 1), "killer_confidence_invalid");
+        const killerIndex = killerBody.allowedDecisions.findIndex((candidate) => candidate.id === killerResult.action?.id);
+        requireValue(killerIndex >= 0, "killer_decision_outside_choices");
+        const killerChoice = pursuitChoices[killerIndex];
+        requireValue(applyKillerDecision(state, killerChoice), "killer_decision_not_legal_optimal");
+        requireValue(state.decisions[0]?.source === "api" && state.decisions[0]?.actor === "killer", "killer_decision_source_invalid");
+        killerDecisionsApplied.push({ actor: "killer", requestId: killerResult.requestId, requestedModel: "gpt-6-luna", httpStatus: killerResponse.status, action: killerChoice.action, target: killerChoice.target, latencyMs: killerResponse.latencyMs, legalOptimal: true, before: killerBefore, after: { room: state.killer.roomId, target: state.killer.targetRoomId } });
+      }
       // Advance the real deterministic rules; inference itself consumes no game time.
-      tick(state, 1);
+      advance(1);
       if (!intervention && choice.action === "move" && state.status === "running" && state.currentAction?.action === "move") {
         const lockBefore = summary(state);
         const target = state.currentAction.target;
@@ -200,21 +230,26 @@ export async function runLiveDemo({ identity, fetchImpl, now = Date.now }) {
         requireValue(event?.type === "lock" && event.interruptedMove && state.locks[target] > state.elapsed && state.energy < lockBefore.energy && !state.currentAction, "player_lock_not_applied");
         intervention = { type: "lock", room: target, interruptedMove: true, before: lockBefore, after: summary(state) };
       }
-      for (let steps = 0; state.currentAction && state.status === "running" && steps < 600; steps++) tick(state, 0.1);
+      for (let steps = 0; state.currentAction && state.status === "running" && steps < 600; steps++) advance(0.1);
       requireValue(!state.currentAction || state.status !== "running", "simulation_action_timeout");
+      // Finish this API-approved edge with normal rules; never invent a next leg.
+      if (decisions.length >= 2 && (postInterventionDecision || followsLock) && !killerDecisionsApplied.some((trace) => trace.completed)) {
+        for (let steps = 0; state.killer.targetRoomId && state.status === "running" && steps < 600; steps++) advance(0.1);
+        requireValue(!state.killer.targetRoomId || state.status !== "running", "killer_movement_timeout");
+      }
       const after = summary(state);
       if (before.room !== after.room) moved = true;
       if (followsLock) postInterventionDecision = true;
-      decisions.push({ requestId: result.requestId, requestedModel: "gpt-6-luna", httpStatus: response.status, action: choice.action, target: choice.target, latencyMs: response.latencyMs, before, after, followsIntervention: followsLock });
-      if (decisions.length >= 3 && moved && postInterventionDecision && state.elapsed > 0) break;
+      decisions.push({ actor: "escape", requestId: result.requestId, requestedModel: "gpt-6-luna", httpStatus: response.status, action: choice.action, target: choice.target, latencyMs: response.latencyMs, before, after, followsIntervention: followsLock });
+      if (decisions.length >= 3 && killerDecisionsApplied.some((trace) => trace.completed) && moved && postInterventionDecision && state.elapsed > 0) break;
     }
-    requireValue(decisions.length >= 3 && moved && intervention && postInterventionDecision && state.elapsed > 0 && state.timeRemaining < 180, "meaningful_live_gameplay_incomplete");
+    requireValue(decisions.length >= 3 && killerDecisionsApplied.some((trace) => trace.completed) && moved && intervention && postInterventionDecision && state.elapsed > 0 && state.timeRemaining < 180, "meaningful_live_gameplay_incomplete");
     receipt = {
-      schemaVersion: 1, completed: true, origin: SITE_ORIGIN,
+      schemaVersion: 2, completed: true, origin: SITE_ORIGIN,
       projectId: identity.projectId, commitSha: identity.commitSha,
       checkedAt: new Date(now()).toISOString(),
       agents: { requestId: session.data.requestId, requestedModel: "gpt-6-astra", httpStatus: session.status, latencyMs: session.latencyMs, terminalSuccess: true },
-      decisions, intervention, finalState: summary(state),
+      decisions, killerDecisions: killerDecisionsApplied, intervention, finalState: summary(state),
     };
   } catch (error) { failure = error; }
   finally {
@@ -236,12 +271,15 @@ export async function runLiveDemo({ identity, fetchImpl, now = Date.now }) {
 
 export function validateReceipt(receipt, identity, now = Date.now()) {
   requireValue(validIdentity(identity), "invalid_source_identity");
-  requireValue(receipt?.schemaVersion === 1 && receipt.completed === true && receipt.origin === SITE_ORIGIN, "live_receipt_missing_or_invalid");
+  requireValue(receipt?.schemaVersion === 2 && receipt.completed === true && receipt.origin === SITE_ORIGIN, "live_receipt_missing_or_invalid");
   verifyRelease(receipt, identity);
   const checkedAt = Date.parse(receipt.checkedAt);
   requireValue(Number.isFinite(checkedAt) && checkedAt <= now && now - checkedAt <= MAX_AGE_MS, "live_receipt_expired");
   requireValue(receipt.agents?.httpStatus === 201 && receipt.agents.terminalSuccess === true && receipt.agents.requestedModel === "gpt-6-astra" && requestId(receipt.agents.requestId), "agents_receipt_invalid");
-  requireValue(Array.isArray(receipt.decisions) && receipt.decisions.length >= 3 && receipt.decisions.length <= 8 && receipt.decisions.every((d) => d.httpStatus === 200 && d.requestedModel === "gpt-6-luna" && requestId(d.requestId) && ["move", "search", "restore", "unlock", "wait", "hide"].includes(d.action)), "decisions_receipt_invalid");
+  requireValue(Array.isArray(receipt.decisions) && receipt.decisions.length >= 3 && receipt.decisions.length <= 12 && receipt.decisions.every((d) => d.actor === "escape" && d.httpStatus === 200 && d.requestedModel === "gpt-6-luna" && requestId(d.requestId) && ["move", "search", "restore", "unlock", "wait", "hide"].includes(d.action)), "decisions_receipt_invalid");
+  requireValue(Array.isArray(receipt.killerDecisions) && receipt.killerDecisions.length >= 1 && receipt.killerDecisions.length <= 12 && receipt.killerDecisions.every((d) => d.actor === "killer" && d.httpStatus === 200 && d.requestedModel === "gpt-6-luna" && requestId(d.requestId) && d.action === "move" && d.legalOptimal === true && d.before?.keycard === true && d.before?.spawned === true && Number.isFinite(d.before.elapsed) && d.before.elapsed > 0 && d.before?.target === null && typeof d.before?.room === "string" && typeof d.target === "string" && d.before.room !== d.target && d.after?.target === d.target && d.after?.room === d.before.room), "killer_receipt_invalid");
+  requireValue(receipt.killerDecisions.every((d) => receipt.decisions.some((sam) => sam.after?.keycard === true && sam.after.elapsed <= d.before.elapsed)), "killer_spawn_receipt_invalid");
+  requireValue(receipt.killerDecisions.some((d) => d.completed?.room === d.target && d.completed.room !== d.before.room && Number.isFinite(d.completed.elapsed) && d.completed.elapsed > 0 && d.completed.elapsed <= receipt.finalState?.elapsed), "killer_movement_receipt_incomplete");
   requireValue(receipt.decisions.some((d) => d.action === "move" && d.before?.room !== d.after?.room) && receipt.decisions.some((d) => d.followsIntervention === true) && receipt.finalState?.elapsed > 0 && receipt.finalState.timeRemaining < 180 && receipt.intervention?.type === "lock" && receipt.intervention.interruptedMove === true, "gameplay_receipt_incomplete");
   requireValue(receipt.cleanup?.completed === true && receipt.cleanup.httpStatus === 200 && requestId(receipt.cleanup.requestId), "cleanup_receipt_incomplete");
   return true;

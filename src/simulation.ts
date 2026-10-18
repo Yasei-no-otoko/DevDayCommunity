@@ -122,6 +122,7 @@ export interface Action extends Decision {
   duration: number;
 }
 export interface DecisionLog {
+  actor?: "escape" | "killer";
   time: number;
   action: string;
   target: RoomId;
@@ -144,6 +145,7 @@ export interface InterventionRecord {
   fearDelta: number;
 }
 export interface KillerState {
+  spawned: boolean;
   roomId: RoomId;
   targetRoomId: RoomId | null;
   progress: number;
@@ -233,6 +235,7 @@ export function createState(seed = 0x53414d): GameState {
     clues: [ROOMS[0].clue],
     outcome: "",
     killer: {
+      spawned: false,
       roomId: "laboratory",
       targetRoomId: null,
       progress: 0,
@@ -539,6 +542,7 @@ function finishAction(state: GameState): void {
     }
   } else if (action.action === "search" && action.target === "archive") {
     state.keycard = true;
+    state.killer.spawned = true;
     state.inventory.push("SECURITY KEYCARD");
     log(
       state,
@@ -671,6 +675,7 @@ export function sabotage(
   return true;
 }
 function encounter(state: GameState): void {
+  if (!state.killer.spawned) return;
   const killer = state.killer;
   if (isHiding(state) || killer.roomId !== state.roomId ||
       (killer.lastEncounterAt !== null && state.elapsed < killer.lastEncounterAt + 12 - 1e-8)) return;
@@ -694,11 +699,59 @@ function worldEvents(state: GameState): void {
     state.tibo.appearances += 1;
     state.tibo.lastAppearanceAt = state.elapsed;
     state.tibo.nextAppearanceAt = state.elapsed + 24 + random(state) * 18;
+    state.energy = 100;
     for (const type of Object.keys(SABOTAGE) as SabotageType[]) state.cooldowns[type] = 0;
   }
   encounter(state);
 }
+/** Killer routing uses actual travel seconds, including each doorway transition. */
+export function killerTravelCost(from: RoomId, goal: RoomId): number {
+  const distances = new Map<RoomId, number>([[from, 0]]);
+  const remaining = new Set(ROOMS.map((room) => room.id));
+  while (remaining.size) {
+    const current = [...remaining].sort((a, b) => (distances.get(a) ?? Infinity) - (distances.get(b) ?? Infinity))[0];
+    const distance = distances.get(current) ?? Infinity;
+    if (current === goal) return distance;
+    remaining.delete(current);
+    for (const next of remaining) if (adjacent(current, next)) {
+      const cost = distance + movementDuration(current, next) * 1.8 + 1;
+      if (cost < (distances.get(next) ?? Infinity)) distances.set(next, cost);
+    }
+  }
+  return Infinity;
+}
+export function killerGoal(state: GameState): RoomId {
+  return isHiding(state) || state.hideout.lostUntil > state.elapsed + 1e-8
+    ? "laboratory" : state.targetRoomId ?? state.roomId;
+}
+export function killerDecisionSignature(state: GameState): string {
+  return `${state.killer.roomId}:${killerGoal(state)}`;
+}
+/** All route choices are visible to Decisions; only minimum-cost moves are accepted. */
+export function killerDecisions(state: GameState): Decision[] {
+  if (!state.killer.spawned || state.killer.targetRoomId || state.killer.roomId === killerGoal(state)) return [];
+  const goal = killerGoal(state);
+  return [...ROOMS.filter((room) => adjacent(state.killer.roomId, room.id)).map((room) => ({
+    action: "move" as const, target: room.id,
+    reason: `ぬこぬこさん：${room.name}へ移動。目標${goal}までの総移動時間 ${(movementDuration(state.killer.roomId, room.id) * 1.8 + 1 + killerTravelCost(room.id, goal)).toFixed(3)}秒。最短経路の候補を選ぶ。`,
+  })), { action: "wait", target: state.killer.roomId, reason: "現在地を観察して待機する。追跡可能な最短移動がある時は選ばない。" }];
+}
+export function applyKillerDecision(state: GameState, decision: Decision): boolean {
+  if (!state.killer.spawned || state.status !== "running" || state.paused || state.killer.targetRoomId || decision.action !== "move" ||
+      !adjacent(state.killer.roomId, decision.target)) return false;
+  const goal = killerGoal(state);
+  const cost = movementDuration(state.killer.roomId, decision.target) * 1.8 + 1 + killerTravelCost(decision.target, goal);
+  if (Math.abs(cost - killerTravelCost(state.killer.roomId, goal)) > 1e-7) return false;
+  state.killer.targetRoomId = decision.target;
+  state.killer.moveElapsed = 0;
+  state.killer.progress = 0;
+  state.killer.moveDuration = movementDuration(state.killer.roomId, decision.target) * 1.8 + 1;
+  state.decisions.unshift({ ...decision, time: state.elapsed, source: "api", actor: "killer" });
+  state.decisions.length = Math.min(state.decisions.length, 60);
+  return true;
+}
 function beginPursuit(state: GameState): void {
+  if (!state.killer.spawned) return;
   const killer = state.killer;
   const goal = state.hideout.lostUntil > state.elapsed + 1e-8 ? "laboratory" : state.roomId;
   if (killer.targetRoomId || killer.roomId === goal) return;
@@ -710,6 +763,7 @@ function beginPursuit(state: GameState): void {
   }
 }
 function advancePursuit(state: GameState, step: number): void {
+  if (!state.killer.spawned) return;
   const killer = state.killer;
   if (!killer.targetRoomId) return;
   killer.moveElapsed += step;
@@ -738,7 +792,7 @@ export function tick(state: GameState, dt: number): void {
     if (state.status !== "running") break;
     if (!state.currentAction && state.controller === "local" && !state.thinking)
       applyDecision(state, chooseLocalAction(state));
-    beginPursuit(state);
+    if (state.controller === "local") beginPursuit(state);
     const dark = affected(state, state.roomId, "blackout");
     const haunted = affected(state, state.roomId, "apparition");
     const whispers = affected(state, state.roomId, "whisper");
@@ -774,10 +828,10 @@ export function tick(state: GameState, dt: number): void {
       state.tibo.nextAppearanceAt - state.elapsed,
       state.hideout.lostUntil > state.elapsed + 1e-8
         ? state.hideout.lostUntil - state.elapsed : Infinity,
-      state.killer.targetRoomId
+      state.killer.spawned && state.killer.targetRoomId
         ? state.killer.moveDuration - state.killer.moveElapsed
         : Infinity,
-      !isHiding(state) && state.killer.roomId === state.roomId && state.killer.lastEncounterAt !== null
+      state.killer.spawned && !isHiding(state) && state.killer.roomId === state.roomId && state.killer.lastEncounterAt !== null
         ? state.killer.lastEncounterAt + 12 - state.elapsed
         : Infinity,
       state.currentAction

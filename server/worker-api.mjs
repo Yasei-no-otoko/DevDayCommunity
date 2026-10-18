@@ -87,12 +87,14 @@ export function createWorkerApiHandler({
         const body = await readJsonBody(request);
         const sessionId = boundedText(body.sessionId, "sessionId", 160);
         await authorizeSession(body.sessionToken, sessionId, owner);
+        const actor = body.actor ?? "escape";
+        if (actor !== "escape" && actor !== "killer") throw new HttpError(400, "invalid_actor", "actor must be escape or killer.");
         const snapshot = body.snapshot;
         if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) throw new HttpError(400, "invalid_snapshot", "snapshot must be a JSON object.");
         if (encoder.encode(JSON.stringify(snapshot)).byteLength > MAX_SNAPSHOT_BYTES) throw new HttpError(413, "snapshot_too_large", "snapshot must be 10 KB or smaller.");
         const allowedDecisions = validateDecisions(body.allowedDecisions);
-        const result = await adapter.decide({ sessionId, snapshot, allowedDecisions });
-        return json(200, { mode: "live", ...result });
+        const result = await adapter.decide({ sessionId, actor, snapshot, allowedDecisions });
+        return json(200, { mode: "live", ...result, actor });
       }
 
       const deleteMatch = request.method === "DELETE" && url.pathname.match(/^\/api\/session\/([^/]+)$/);
@@ -167,7 +169,7 @@ function boundedText(value, name, maxLength) {
 }
 
 function validateDecisions(value) {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 12) throw new HttpError(400, "invalid_decisions", "allowedDecisions must contain 1 to 12 options.");
+  if (!Array.isArray(value) || value.length < 2 || value.length > 12) throw new HttpError(400, "invalid_decisions", "allowedDecisions must contain 2 to 12 options.");
   const seen = new Set();
   return value.map((item, index) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new HttpError(400, "invalid_decision", `Decision ${index + 1} must be an object.`);

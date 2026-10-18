@@ -45,7 +45,7 @@ test("public release identity comes from the build and requires a full source co
   assert.equal(invalid.status, 503);
 });
 function decide(handler, session, options = {}) {
-  return invoke(handler, { method: "POST", path: "/api/decision", body: { sessionId: session.sessionId, sessionToken: session.sessionToken, snapshot: { room: "entrance" }, allowedDecisions: [action] }, ...options });
+  return invoke(handler, { method: "POST", path: "/api/decision", body: { sessionId: session.sessionId, sessionToken: session.sessionToken, snapshot: { room: "entrance" }, allowedDecisions: [action, { ...action, id: "wait" }] }, ...options });
 }
 
 test("status reports runtime configuration and security response headers", async () => {
@@ -189,7 +189,7 @@ test("invalid JSON, media type, body length and fields fail before session creat
 test("snapshot byte limits and decision option validation precede upstream decision calls", async () => {
   const { handler, calls } = fixture();
   const session = (await createSession(handler)).json;
-  const base = { sessionId: session.sessionId, sessionToken: session.sessionToken, snapshot: {}, allowedDecisions: [action] };
+  const base = { sessionId: session.sessionId, sessionToken: session.sessionToken, snapshot: {}, allowedDecisions: [action, { ...action, id: "wait" }] };
   for (const [change, expected] of [
     [{ snapshot: [] }, 400],
     [{ snapshot: { text: "あ".repeat(4000) } }, 413],
@@ -223,4 +223,23 @@ test("unknown endpoints and malformed delete paths fail without adapter calls", 
   assert.equal((await invoke(handler, { path: "/api/unknown" })).status, 404);
   assert.equal((await invoke(handler, { path: "/api/session/%E0%A4%A", method: "DELETE" })).status, 400);
   assert.equal(calls.length, 0);
+});
+
+
+test("decision actor is validated before adapter use and preserved in responses", async () => {
+  const { handler, calls } = fixture();
+  const session = (await createSession(handler)).json;
+  const body = { sessionId: session.sessionId, sessionToken: session.sessionToken, snapshot: { room: "corridor" }, allowedDecisions: [action, { ...action, id: "wait" }] };
+  for (const actor of ["killer", "escape"]) {
+    const result = await invoke(handler, { method: "POST", path: "/api/decision", body: { ...body, actor } });
+    assert.equal(result.status, 200);
+    assert.equal(result.json.actor, actor);
+    assert.equal(calls.at(-1)[1].actor, actor);
+  }
+  const count = calls.length;
+  const invalid = await invoke(handler, { method: "POST", path: "/api/decision", body: { ...body, actor: "other" } });
+  assert.equal(invalid.status, 400);
+  const single = await invoke(handler, { method: "POST", path: "/api/decision", body: { ...body, allowedDecisions: [action] } });
+  assert.equal(single.status, 400);
+  assert.equal(calls.length, count);
 });

@@ -93,3 +93,11 @@ No provider response, model choice, or animation frame was mocked. A browser fet
 | Cleanup | Reset deleted both tested provider sessions with 200 responses. The final cleanup request was `req_7d179e578b724e749efd98227009073f`. |
 
 The follow-up's player side used bounded UI automation: at most four lock clicks, followed by one apparition click after observing the model-selected hide. It used the published buttons and did not change the simulation, legal choices, or API results. This is an integration test; it does not establish how enjoyable first-time human players find the game. API choices can choose a different valid escape route in another run.
+
+## 2キャラクターのDecisionsと選択肢数（2026-10-18追加調査）
+
+実装前に[Decisionsガイド](https://developers.openai.com/api/docs/guides/decisions)と[作成APIの参照](https://developers.openai.com/api/reference/resources/decisions/methods/create)を再確認しました。`gpt-6-luna`、`POST /v1/decisions`、`input`、`questions`、typed choice/refusalの既存REST形式は引き続き一致します。SDKの追加は不要です。
+
+一方、choiceの選択肢は**2〜255個**という制約があります。従来のローカル入力検証は1個でも通していたため、サムの合法手が1個しかない場合は強制手としてローカル適用し、実API成功回数へ数えません。ぬこぬこさんの追跡判断には合法な隣接移動と待機の選択肢を提示し、移動時間を重みにした最短経路候補だけを適用します。不正・古い・最適経路外の応答は停止して表示します。
+
+サムとぬこぬこさんは個別のDecisionsリクエストを使います。サーバーでactorを検証し、逃走・追跡の指示を固定します。同一リクエストの複数questionはinputを共有するため、役割の分離には使いません。サムへは初遭遇前のキラー情報やキラーの行動履歴を送らず、キラーへも隠れ場所によって見失ったサムの位置を送らない設計です。公開版の受信確認は現行コミットに対する必須ゲートと通常ブラウザー操作で行います。

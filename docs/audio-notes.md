@@ -39,3 +39,9 @@
 囁きは女性声に逆向きの残響と声の重なりを加えた `whisper-ghost.mp3` に更新した。以前の音声がブラウザーにキャッシュされていても新しい素材を取得できるよう、配信パスも変更した。
 
 2026-10-18の最新mainでは、接触後も実験を継続し、恐怖100で捕獲結果を表示する。実験中の接触は遭遇音を再生でき、終了・結果ダイアログでは音を停止する。上記の検証記録は音追加時の記録として保持し、現行版の実API確認にはデモの必須ゲートを使用する。
+
+## 提供BGMのループ（2026-10-18追加）
+
+ユーザー提供の `A_dark,_suspenseful__#3-1792305773451.mp3`（15.680秒、ステレオ48kHz、377,901 bytes）をBGMに使用します。既存のCC0効果音とは出典を区別し、ファイル名の `#` をURLでは `%23` として扱います。MP3を改変せず配信し、Web Audioの `loop=true` で繰り返します。
+
+[MDNのloop](https://developer.mozilla.org/en-US/docs/Web/API/AudioBufferSourceNode/loop)と[AudioContext.resume](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext/resume)を実装前に確認しました。音設定は初期オン、実際のAudioContext作成・再開は開始クリックから行い、操作前の自動再生は試みません。API応答待ち中はBGMの同じループを維持し、効果音は止めます。一時停止・映像・dialog・非表示・終了・ミュート・reset・disposeではBGMも停止します。上記の初期オフは過去版の記録です。

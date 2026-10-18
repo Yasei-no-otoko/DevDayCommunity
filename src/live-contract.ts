@@ -1,4 +1,4 @@
-import { ROOMS, CONNECTIONS, HIDEOUT, isHiding, chooseLocalAction, applyDecision, type GameState, type Decision, type RoomId } from "./simulation.ts";
+import { ROOMS, CONNECTIONS, HIDEOUT, isHiding, killerGoal, killerTravelCost, chooseLocalAction, applyDecision, type GameState, type Decision, type RoomId } from "./simulation.ts";
 
 const roomNames: Record<RoomId, string> = {
   reception: "受付", corridor: "中央ホール", ward: "隔離病棟",
@@ -60,8 +60,8 @@ export function createSessionRequest() {
       rooms: ROOMS.map(({ id, clue }) => ({ id, clue })),
       connections: CONNECTIONS,
       goal: "AI-controlled game avatar Sam Altman finds keycard in archive, restores generator, unlocks exit. Avoid fear100 and deadline180. Player is the building entity and sabotages rooms.",
-      killerRules: "Nuko Nuko pursues Sam through connected rooms. Sam does not know her location until their first contact. Contact marks Sam as caught and raises fear, but the simulation continues. Fear reaching 100 after contact ends the run with Sam captured; fear 100 without contact is a player win.",
-      helperRules: "Tibo occasionally resets the cooldowns of the four player interventions. Energy, progress and active effects are unchanged.",
+      killerRules: "Nuko Nuko first spawns when Sam collects the keycard. Before that she is absent and cannot move or contact Sam. After spawning she pursues Sam through connected rooms. Sam does not know her location until their first contact. Contact marks Sam as caught and raises fear, but the simulation continues. Fear reaching 100 after contact ends the run with Sam captured; fear 100 without contact is a player win.",
+      helperRules: "Tibo occasionally resets the cooldowns of the four player interventions. Energy is restored to 100. Progress and active effects are unchanged.",
       hideoutRules: "Room contact with Nuko Nuko marks Sam as caught but does not immediately end the run. Sam can keep moving and working; fear reaching 100 after contact ends the run with Sam captured.",
     }),
     strategicPlan:
@@ -71,11 +71,13 @@ export function createSessionRequest() {
 
 export function createDecisionRequest(state: GameState, plan: string, choices: Decision[], sessionId: string, sessionToken: string) {
   return {
+    actor: "escape",
     sessionId,
     sessionToken,
     snapshot: {
       room: state.roomId,
       keycard: state.keycard,
+      pursuer: { spawned: state.killer.spawned, spawnCondition: "Nuko Nuko appears only when the archive keycard is collected. No pursuit or contact occurs before then." },
       power: state.power,
       fear: Math.round(state.fear),
       timeRemaining: Math.round(state.timeRemaining),
@@ -84,7 +86,7 @@ export function createDecisionRequest(state: GameState, plan: string, choices: D
       effects: state.effects,
       clues: state.clues,
       strategy: plan,
-      recentActions: state.decisions.filter((entry) => entry.source !== "system" && entry.action !== "plan").slice(0, 6),
+      recentActions: state.decisions.filter((entry) => entry.source !== "system" && entry.action !== "plan" && entry.actor !== "killer").slice(0, 6),
       hideout: {
         roomId: "ward",
         active: isHiding(state),
@@ -108,5 +110,20 @@ export function createDecisionRequest(state: GameState, plan: string, choices: D
       description: d.reason,
       targetId: d.target,
     })),
+  };
+}
+
+export function createKillerDecisionRequest(state: GameState, choices: Decision[], sessionId: string, sessionToken: string) {
+  const concealed = isHiding(state) || state.hideout.lostUntil > state.elapsed + 1e-8;
+  return {
+    actor: "killer", sessionId, sessionToken,
+    snapshot: {
+      actor: "killer", objective: "Trap Sam by choosing a minimum weighted travel-time route. Choose a move with the lowest total travel time; never wait while a shortest move exists.",
+      room: state.killer.roomId, goal: killerGoal(state),
+      minimumTravelSeconds: killerTravelCost(state.killer.roomId, killerGoal(state)),
+      connections: CONNECTIONS, trailLost: concealed,
+      ...(!concealed ? { samRoom: state.roomId, samTargetRoom: state.targetRoomId } : {}),
+    },
+    allowedDecisions: choices.map((decision, index) => ({ id: `killer_choice_${index}`, label: `${decision.action} ${decision.target}`, description: decision.reason, targetId: decision.target })),
   };
 }

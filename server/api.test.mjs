@@ -410,3 +410,18 @@ test("Agents rejects environment and stream errors even after root turn completi
     }
   }
 });
+
+
+test("killer Decisions uses pursuit instructions and rejects an unknown actor", async () => {
+  let sent;
+  const adapter = createOpenAIAdapter({ apiKey: "test-key", fetchImpl: async (_url, options) => {
+    sent = JSON.parse(options.body);
+    return Response.json({ id: "decision_killer", answers: [{ type: "choice", name: "action", choice: "move" }] });
+  } });
+  const choices = [{ id: "move", label: "Move", description: "Minimum travel time" }, { id: "wait", label: "Wait", description: "Observe" }];
+  await adapter.decide({ sessionId: "session", actor: "killer", snapshot: {}, allowedDecisions: choices });
+  assert.match(sent.questions[0].instructions, /minimum total weighted travel time/);
+  assert.doesNotMatch(sent.questions[0].instructions, /player's escape objective/);
+  assert.equal(JSON.parse(sent.input).actor, "killer");
+  await assert.rejects(adapter.decide({ actor: "other", snapshot: {}, allowedDecisions: choices }), /Invalid decision actor/);
+});

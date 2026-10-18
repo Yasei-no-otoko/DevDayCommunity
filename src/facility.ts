@@ -753,6 +753,7 @@ export function createFacility(
   const killerLabel = document.createElement("span");
   killerLabel.className = "facility-killer-label";
   killerLabel.textContent = "ぬこぬこさん";
+  killerLabel.hidden = true;
   labels.append(killerLabel);
   let latestState: GameState | undefined;
   let selection: RoomId = "reception";
@@ -839,7 +840,7 @@ export function createFacility(
           .setOrigin(0.5, 0.94).setScale(85 / source.height).setDepth(4);
         this.agent.setVisible(false);
       }
-      this.killerAura = this.add.graphics().setDepth(2);
+      this.killerAura = this.add.graphics().setDepth(2).setVisible(false);
       const killerShadow = this.add.ellipse(0, 3, 32, 13, 0x18020e, 0.8);
       const killerBody = this.add.graphics();
       killerBody.fillStyle(mapTone.killer, 0.9);
@@ -848,11 +849,11 @@ export function createFacility(
       killerBody.lineStyle(3, mapTone.danger);
       killerBody.lineBetween(-5, 2, -7, 13);
       killerBody.lineBetween(5, 2, 7, 13);
-      this.killerFallback = this.add.container(this.killerPoint.x, this.killerPoint.y, [killerShadow, killerBody]).setDepth(4);
+      this.killerFallback = this.add.container(this.killerPoint.x, this.killerPoint.y, [killerShadow, killerBody]).setDepth(4).setVisible(false);
       if (this.textures.exists("nuko-map")) {
         const source = this.textures.get("nuko-map").getSourceImage() as HTMLImageElement;
         this.killerSprite = this.add.image(this.killerPoint.x, this.killerPoint.y, "nuko-map")
-          .setOrigin(0.5, 0.98).setScale(95 / source.height).setDepth(5);
+          .setOrigin(0.5, 0.98).setScale(95 / source.height).setDepth(5).setVisible(false);
         this.killerFallback.setVisible(false);
       }
       for (const r of ROOMS) {
@@ -893,6 +894,10 @@ export function createFacility(
       if (this.samSprite && Math.abs(x - previous.x) > 0.1) this.samSprite.setFlipX(x < previous.x);
       if (state) {
         const killer = state.killer;
+        killerLabel.hidden = !killer.spawned;
+        this.killerSprite?.setVisible(killer.spawned);
+        this.killerFallback.setVisible(killer.spawned && !this.killerSprite);
+        this.killerAura.setVisible(killer.spawned);
         const destination = killer.targetRoomId ? routePosition(killer.roomId, killer.targetRoomId, killer.progress) : center(roomFor(killer.roomId));
         const previousKillerX = this.killerPoint.x;
         this.killerPoint.x += (destination.x - this.killerPoint.x) * smoothing;

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createContext, runInContext } from "node:vm";
 import { runLiveDemo, validateReceipt, createBrowserTransport, validateBrowserTarget, SITE_ORIGIN, MAX_AGE_MS } from "./verify-live-demo.mjs";
-import { createState, applyDecision } from "../src/simulation.ts";
+import { createState, applyDecision, applyKillerDecision, killerDecisions } from "../src/simulation.ts";
 import { legalDecisions, createDecisionRequest, createSessionRequest } from "../src/live-contract.ts";
 
 const identity = { projectId: "appgprj_test123", commitSha: "a".repeat(40) };
@@ -10,7 +10,7 @@ const instant = Date.parse("2026-10-18T07:00:00Z");
 const capability = "private_capability_marker";
 const providerSession = "sess_private_provider_marker";
 const plan = "private_plan_marker";
-function fixture({ auth = true, badChoice = false, decisionFailure = false, cleanupFailure = false, finalReleaseMismatch = false, noProgress = false, sessionInvalid = false } = {}) {
+function fixture({ auth = true, badChoice = false, decisionFailure = false, cleanupFailure = false, finalReleaseMismatch = false, noProgress = false, sessionInvalid = false, killerFailure = false, killerBadChoice = false, wrongActor = false, missingActor = false } = {}) {
   const calls = [];
   let decisionCount = 0, releaseCount = 0;
   return {
@@ -37,14 +37,29 @@ function fixture({ auth = true, badChoice = false, decisionFailure = false, clea
         return Response.json({ mode: "live", requestId: "req_cleanup_success" }, { status: cleanupFailure ? 502 : 200 });
       }
       if (path === "/api/decision") {
+        assert.ok(["escape", "killer"].includes(body.actor));
+        if (body.actor === "killer") {
+          assert.equal(body.sessionId, providerSession);
+          assert.equal(body.sessionToken, capability);
+          if (killerFailure) return Response.json({ mode: "live" }, { status: 502 });
+          const state = createState();
+          state.status = "running";
+          state.killer.spawned = true;
+          state.keycard = true;
+          state.killer.roomId = body.snapshot.room;
+          state.targetRoomId = body.snapshot.goal;
+          const optimal = killerDecisions(state).find((choice) => applyKillerDecision(structuredClone(state), choice));
+          const action = killerBadChoice ? body.allowedDecisions.find((choice) => choice.label.startsWith("wait ")) : body.allowedDecisions.find((choice) => choice.label === `${optimal.action} ${optimal.target}`);
+          return Response.json({ mode: "live", actor: missingActor ? undefined : wrongActor ? "escape" : "killer", action, requestId: "req_killer_success_1", confidence: 0.9 });
+        }
         decisionCount++;
         assert.equal(body.sessionId, providerSession);
         assert.equal(body.sessionToken, capability);
         assert.equal(body.snapshot.strategy, plan);
         if (decisionFailure) return Response.json({ error: { message: "private_provider_error_marker" } }, { status: 502 });
-        const desired = noProgress ? "wait reception" : ["move corridor", "move ward", "move archive"][decisionCount - 1];
+        const desired = noProgress ? "wait reception" : ["move corridor", "move ward", "move archive", "search archive", "move corridor"][decisionCount - 1];
         const action = body.allowedDecisions.find((choice) => choice.label === desired) ?? body.allowedDecisions[0];
-        return Response.json({ mode: "live", action: badChoice ? { id: "invented" } : action, requestId: `req_decision_success_${decisionCount}`, confidence: 0.9 });
+        return Response.json({ mode: "live", actor: "escape", action: badChoice ? { id: "invented" } : action, requestId: `req_decision_success_${decisionCount}`, confidence: 0.9 });
       }
       assert.fail(`Unexpected path ${path}`);
     },
@@ -58,13 +73,22 @@ async function run(options) {
 
 test("hosted live gate applies actual game choices, re-plans after lock, cleans up and emits only safe metadata", async () => {
   const { receipt, calls } = await run();
-  assert.equal(receipt.decisions.length, 3);
+  assert.equal(receipt.decisions.length, 5);
   assert.equal(receipt.intervention.interruptedMove, true);
   assert.ok(receipt.intervention.after.energy < receipt.intervention.before.energy);
   assert.equal(receipt.decisions[1].followsIntervention, true);
-  assert.equal(calls.filter((c) => c.path === "/api/decision")[1].body.snapshot.locks.corridor, 13);
+  assert.equal(calls.filter((c) => c.path === "/api/decision" && c.body.actor === "escape")[1].body.snapshot.locks.corridor, 13);
   assert.ok(receipt.finalState.elapsed > 0);
-  assert.equal(receipt.finalState.room, "archive");
+  assert.equal(receipt.finalState.room, "corridor");
+  assert.equal(receipt.finalState.keycard, true);
+  assert.equal(receipt.killerDecisions.every((d) => d.before.keycard && d.before.spawned), true);
+  const firstKiller = calls.findIndex((c) => c.body?.actor === "killer");
+  assert.ok(calls.slice(0, firstKiller).some((c) => c.body?.actor === "escape" && c.body.snapshot.keycard === true));
+  assert.equal(receipt.killerDecisions.length >= 1, true);
+  assert.equal(receipt.killerDecisions[0].actor, "killer");
+  assert.equal(receipt.killerDecisions[0].legalOptimal, true);
+  assert.equal(receipt.killerDecisions[0].httpStatus, 200);
+  assert.equal(receipt.killerDecisions.some((d) => d.completed?.room === d.target && d.completed.room !== d.before.room), true);
   assert.equal(receipt.cleanup.completed, true);
   assert.equal(calls.at(-2).method, "DELETE");
   assert.equal(calls.at(-1).path, "/api/release");
@@ -84,6 +108,10 @@ test("missing browser transport and unauthenticated status cannot trigger paid p
 
 for (const [name, options, code] of [
   ["invalid provider choice", { badChoice: true }, "decision_outside_legal_choices"],
+  ["missing killer actor", { missingActor: true }, "killer_live_response_invalid"],
+  ["mismatched killer actor", { wrongActor: true }, "killer_live_response_invalid"],
+  ["killer failure", { killerFailure: true }, "killer_live_response_invalid"],
+  ["nonoptimal killer choice", { killerBadChoice: true }, "killer_decision_not_legal_optimal"],
   ["provider failure", { decisionFailure: true }, "decisions_live_response_invalid"],
   ["incomplete Agents root turn", { sessionInvalid: true }, "agents_live_response_invalid"],
 ]) test(`${name} fails and still deletes the provider session`, async () => {
@@ -102,8 +130,8 @@ test("cleanup failure and deployment changes fail a successful run", async () =>
 test("bounded successful wait responses and early capture cannot satisfy meaningful gameplay", async () => {
   const f = fixture({ noProgress: true });
   await assert.rejects(runLiveDemo({ identity, fetchImpl: f.fetchImpl }), /meaningful_live_gameplay_incomplete/);
-  const count = f.calls.filter((c) => c.path === "/api/decision").length;
-  assert.ok(count > 0 && count <= 8);
+  const count = f.calls.filter((c) => c.path === "/api/decision" && c.body.actor === "escape").length;
+  assert.ok(count > 0 && count <= 12);
   assert.equal(f.calls.at(-1).method, "DELETE");
 });
 
@@ -113,6 +141,13 @@ test("receipt acceptance rejects stale, future, wrong release and missing cleanu
   assert.throws(() => validateReceipt(receipt, identity, instant - 1), /live_receipt_expired/);
   assert.throws(() => validateReceipt(receipt, { ...identity, commitSha: "b".repeat(40) }, instant), /deployed_release_mismatch/);
   assert.throws(() => validateReceipt({ ...receipt, cleanup: undefined }, identity, instant), /cleanup_receipt_incomplete/);
+  assert.throws(() => validateReceipt({ ...receipt, schemaVersion: 1 }, identity, instant), /live_receipt_missing_or_invalid/);
+  assert.throws(() => validateReceipt({ ...receipt, killerDecisions: undefined }, identity, instant), /killer_receipt_invalid/);
+  assert.throws(() => validateReceipt({ ...receipt, killerDecisions: [] }, identity, instant), /killer_receipt_invalid/);
+  assert.throws(() => validateReceipt({ ...receipt, killerDecisions: receipt.killerDecisions.map(({ completed, ...trace }) => trace) }, identity, instant), /killer_movement_receipt_incomplete/);
+  for (const change of [{ before: { ...receipt.killerDecisions[0].before, keycard: false } }, { before: { ...receipt.killerDecisions[0].before, spawned: false } }, { actor: "escape" }, { legalOptimal: false }, { httpStatus: 502 }, { requestId: null }, { after: { target: "invented" } }]) {
+    assert.throws(() => validateReceipt({ ...receipt, killerDecisions: [{ ...receipt.killerDecisions[0], ...change }] }, identity, instant), /killer_receipt_invalid/);
+  }
   assert.throws(() => validateReceipt({ ...receipt, decisions: receipt.decisions.slice(0, 2) }, identity, instant), /decisions_receipt_invalid/);
 });
 

@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyDecision,
+  applyKillerDecision,
+  killerDecisions,
+  killerGoal,
+  killerTravelCost,
+  ROOMS,
   CONNECTIONS,
   HIDEOUT,
   canHide,
@@ -14,6 +19,7 @@ import {
 } from "./simulation.ts";
 
 function keepKillerOutOfRoute(state: ReturnType<typeof createState>) {
+  state.killer.spawned = true;
   state.killer.roomId = "laboratory";
   state.killer.targetRoomId = "laboratory";
   state.killer.moveElapsed = 0;
@@ -372,6 +378,7 @@ test("the pursuer approaches Sam over legal edges and records contact", () => {
   assert.equal(state.killer.roomId, "laboratory");
   assert.equal(state.killer.encountered, false);
   assert.equal(state.killer.lastEncounterAt, null);
+  state.killer.spawned = true;
   let transitions = 0;
   for (let frame = 0; frame < 1200 && state.status === "running"; frame++) {
     const previous = state.killer.roomId;
@@ -400,20 +407,25 @@ test("Sam cannot route around an unseen killer but avoids its room after first c
   state.status = "running";
   const expected = chooseLocalAction(state);
   for (const roomId of ["corridor", "ward", "reception", "archive"] as const) {
+    state.killer.spawned = true;
     state.killer.roomId = roomId;
     state.killer.targetRoomId = "archive";
     assert.deepEqual(chooseLocalAction(state), expected);
   }
+  state.killer.spawned = true;
   state.killer.encountered = true;
   state.killer.encounterCount = 1;
+  state.killer.spawned = true;
   state.killer.roomId = "corridor";
   state.killer.targetRoomId = null;
   assert.equal(chooseLocalAction(state).target, "ward");
   assert.equal(state.keycard, false);
   assert.equal(state.power, false);
   state.roomId = "archive";
+  state.killer.spawned = true;
   state.killer.roomId = "archive";
   assert.equal(chooseLocalAction(state).action, "move");
+  state.killer.spawned = true;
   state.killer.roomId = "reception";
   state.hideout.completed = 1; // After the refuge visit, ordinary objective work resumes.
   assert.equal(chooseLocalAction(state).action, "search");
@@ -423,6 +435,7 @@ test("first contact records capture and gameplay continues", () => {
   const state = createState(123);
   state.status = "running";
   state.controller = "api";
+  state.killer.spawned = true;
   state.killer.roomId = state.roomId;
   tick(state, 0.01);
   assert.equal(state.killer.encountered, true);
@@ -449,6 +462,7 @@ test("contact does not interrupt unfinished stationary work or movement", () => 
     assert.equal(applyDecision(state, { action, target: state.roomId, reason: "unfinished work" }), true);
     tick(state, 0.5);
     assert.ok(state.progress > 0);
+    state.killer.spawned = true;
     state.killer.roomId = state.roomId;
     state.killer.targetRoomId = null;
     state.killer.moveElapsed = 0;
@@ -469,6 +483,7 @@ test("contact does not interrupt unfinished stationary work or movement", () => 
   assert.equal(applyDecision(moving, { action: "move", target: "ward", reason: "leave" }), true);
   tick(moving, 0.5);
   const progress = moving.progress;
+  moving.killer.spawned = true;
   moving.killer.roomId = moving.roomId;
   moving.killer.targetRoomId = null;
   tick(moving, 0.01);
@@ -484,6 +499,7 @@ test("Sam entering the pursuer's room records contact and continues", () => {
   state.status = "running";
   state.controller = "api";
   state.roomId = "corridor";
+  state.killer.spawned = true;
   state.killer.roomId = "archive";
   state.killer.targetRoomId = "archive";
   state.killer.moveDuration = Number.POSITIVE_INFINITY;
@@ -500,6 +516,7 @@ test("pursuer contact is recorded at the current room regardless of pending obje
     const state = createState(123);
     state.status = "running";
     state.roomId = roomId;
+    state.killer.spawned = true;
     state.killer.roomId = roomId;
     if (roomId !== "archive") state.keycard = true;
     if (roomId === "exit") state.power = true;
@@ -515,6 +532,7 @@ test("fear reaching 100 ends the run, with captured outcome only after contact",
   caught.status = "running";
   caught.controller = "api";
   caught.fear = 99.5;
+  caught.killer.spawned = true;
   caught.killer.roomId = caught.roomId;
   tick(caught, 0.01);
   assert.equal(caught.killer.encountered, true);
@@ -530,6 +548,7 @@ test("fear reaching 100 ends the run, with captured outcome only after contact",
   uncaught.status = "running";
   uncaught.controller = "api";
   uncaught.fear = 99.9;
+  uncaught.killer.spawned = true;
   uncaught.killer.roomId = "laboratory";
   tick(uncaught, 1);
   assert.equal(uncaught.killer.encountered, false);
@@ -542,7 +561,9 @@ test("Sam retreats before calming down when the known killer shares an escapable
   const state = createState(123);
   state.status = "running";
   state.fear = 60;
+  state.killer.spawned = true;
   state.killer.roomId = state.roomId;
+  state.killer.spawned = true;
   state.killer.encountered = true;
   const escape = chooseLocalAction(state);
   assert.equal(escape.action, "move");
@@ -563,6 +584,9 @@ test("terminal fear crossing advances the pursuer to the same instant for every 
     state.status = "running";
     state.controller = "api";
     state.fear = 99.99;
+    state.killer.spawned = true;
+    const decision = killerDecisions(state).find((choice) => applyKillerDecision(structuredClone(state), choice))!;
+    assert.equal(applyKillerDecision(state, decision), true);
     while (state.status === "running") tick(state, frameSize);
     return state;
   }
@@ -574,7 +598,7 @@ test("terminal fear crossing advances the pursuer to the same instant for every 
   assert.ok(Math.abs(coarse.killer.moveElapsed - coarse.elapsed) < 1e-7);
 });
 
-test("Tibo only resets the four intervention cooldowns and leaves active work intact", () => {
+test("Tibo restores energy to 100 and resets cooldowns while leaving active work intact", () => {
   const state = createState(123);
   state.status = "running";
   state.controller = "api";
@@ -592,10 +616,10 @@ test("Tibo only resets the four intervention cooldowns and leaves active work in
   assert.equal(state.tibo.appearances, 1);
   assert.equal(state.tibo.lastAppearanceAt, 0);
   assert.ok(state.tibo.nextAppearanceAt >= 24 && state.tibo.nextAppearanceAt <= 42);
-  for (const field of ["energy", "fear", "progress", "currentAction", "effects", "locks", "inventory", "interventionHistory", "interventions", "killer"] as const)
+  for (const field of ["fear", "progress", "currentAction", "effects", "locks", "inventory", "interventionHistory", "interventions", "killer"] as const)
     assert.deepEqual(state[field], control[field], field);
-  assert.equal(state.energy < 15, true);
-  assert.equal(sabotage(state, "whisper", "archive"), false, "Tibo does not waive energy cost");
+  assert.equal(state.energy, 100);
+  assert.equal(sabotage(state, "whisper", "archive"), true, "restored energy funds another intervention");
 });
 
 test("seeded appearances repeat, vary across seeds, and zero seed is nondegenerate", () => {
@@ -634,6 +658,7 @@ test("pursuit contact and seeded Tibo events ignore incoming frame size", () => 
     state.tibo.nextAppearanceAt = 0.1;
     if (interruptWork) {
       state.roomId = "archive";
+      state.killer.spawned = true;
       state.killer.roomId = "ward";
       state.killer.targetRoomId = "archive";
       state.killer.moveDuration = 2;
@@ -657,7 +682,8 @@ test("pursuit contact and seeded Tibo events ignore incoming frame size", () => 
   for (const interruptWork of [false, true]) {
     for (const controller of ["local", "api"] as const) {
       const expected = run(180, controller, interruptWork);
-      assert.ok(expected.killer.encounterCount >= 1);
+      if (controller === "local" || interruptWork) assert.ok(expected.killer.encounterCount >= 1);
+      else assert.equal(expected.killer.encounterCount, 0, "API mode cannot invent pursuit choices");
       assert.ok(expected.tibo.appearances >= 1);
       compare(run(0.1, controller, interruptWork), expected);
       compare(run(0.5, controller, interruptWork), expected);
@@ -672,9 +698,11 @@ test("pursuit contact and seeded Tibo events ignore incoming frame size", () => 
 function wardRefugeState() {
   const state = createState(123);
   state.status = "running";
-  state.controller = "api";
+  state.controller = "local";
   state.roomId = "ward";
+  state.killer.spawned = true;
   state.killer.roomId = "ward";
+  state.killer.spawned = true;
   state.killer.encountered = true;
   state.killer.encounterCount = 1;
   state.killer.lastEncounterAt = 0;
@@ -732,6 +760,7 @@ test("eight known-threat seeds send Sam to the ward hideout and then complete th
   for (const seed of [1, 2, 3, 7, 42, 123, 0x53414d, 0xffffffff]) {
     const state = createState(seed);
     state.status = "running";
+    state.killer.spawned = true;
     state.killer.encountered = true;
     state.killer.encounterCount = 1;
     keepKillerOutOfRoute(state);
@@ -796,4 +825,91 @@ test("hide timers freeze during pause and thinking, and large ticks preserve con
     return JSON.parse(JSON.stringify(state, (_key, value) => typeof value === "number" ? Math.round(value * 1e6) / 1e6 : value));
   }
   assert.deepEqual(run(48), run(1 / 60));
+});
+
+
+test("API killer never starts a local pursuit and only accepts a shortest adjacent move", () => {
+  const state = createState(123);
+  state.killer.spawned = true;
+  state.status = "running";
+  state.controller = "api";
+  tick(state, 1);
+  assert.equal(state.killer.targetRoomId, null);
+  const choices = killerDecisions(state);
+  assert.ok(choices.length >= 2);
+  const shortest = choices.filter((choice) => applyKillerDecision(structuredClone(state), choice));
+  assert.ok(shortest.length >= 1);
+  for (const action of [{ action: "move", target: "ward" }, { action: "wait", target: state.killer.roomId }, { action: "move", target: "not-a-room" }]) {
+    assert.equal(applyKillerDecision(state, { ...action, reason: "invalid" } as never), false);
+  }
+  const nonoptimal = choices.find((choice) => choice.action === "move" && !shortest.includes(choice));
+  if (nonoptimal) assert.equal(applyKillerDecision(state, nonoptimal), false);
+  assert.equal(applyKillerDecision(state, shortest[0]), true);
+  assert.equal(state.decisions[0].actor, "killer");
+  tick(state, state.killer.moveDuration);
+  assert.equal(state.killer.targetRoomId, null, "no automatic next edge in API mode");
+});
+
+test("weighted routes use actual travel time and preserve equally optimal next steps", () => {
+  const state = createState(); state.status = "running"; state.controller = "api";
+  state.killer.spawned = true;
+  state.killer.roomId = "corridor"; state.roomId = "ward";
+  const positions = ROOMS.map((room) => ({ x: room.x, y: room.y, w: room.w, h: room.h }));
+  try {
+    for (const room of ROOMS) Object.assign(room, { x: 0, y: 0, w: 1, h: 1 });
+    assert.equal(killerTravelCost("corridor", "ward"), 2);
+    const optimal = killerDecisions(state).filter((choice) => applyKillerDecision(structuredClone(state), choice));
+    assert.deepEqual(optimal.map((choice) => choice.target).sort(), ["archive", "reception"]);
+    ROOMS.find((room) => room.id === "reception")!.x = 1000;
+    const weighted = killerDecisions(state).filter((choice) => applyKillerDecision(structuredClone(state), choice));
+    assert.deepEqual(weighted.map((choice) => choice.target), ["archive"]);
+  } finally { ROOMS.forEach((room, index) => Object.assign(room, positions[index])); }
+});
+
+test("killer intercepts visible destinations but concealed Sam does not enter the request", async () => {
+  const { createKillerDecisionRequest, createDecisionRequest, legalDecisions } = await import("./live-contract.ts");
+  const state = createState(); state.status = "running"; state.controller = "api";
+  state.targetRoomId = "ward";
+  assert.equal(killerGoal(state), "ward");
+  state.hideout.lostUntil = 10;
+  assert.equal(killerGoal(state), "laboratory");
+  state.killer.spawned = true;
+  state.killer.roomId = "corridor";
+  const request = createKillerDecisionRequest(state, killerDecisions(state), "session", "token");
+  assert.equal(request.actor, "killer");
+  assert.equal("samRoom" in request.snapshot, false);
+  assert.equal("samTargetRoom" in request.snapshot, false);
+  state.decisions.unshift({ time: 0, action: "move", target: "corridor", reason: "killer secret", source: "api", actor: "killer" });
+  const sam = createDecisionRequest(state, "plan", legalDecisions(state), "session", "token");
+  assert.equal(JSON.stringify(sam.snapshot).includes("killer secret"), false);
+  assert.equal("knownKiller" in sam.snapshot, false);
+});
+
+
+test("Nuko is dormant until the exact keycard completion and resets absent", () => {
+  for (const controller of ["local", "api"] as const) {
+    const state = createState(123); state.status = "running"; state.controller = controller;
+    assert.equal(state.killer.spawned, false);
+    assert.equal(state.killer.roomId, "laboratory");
+    state.roomId = "laboratory";
+    tick(state, 0.1);
+    assert.equal(state.killer.encountered, false, "dormant actor cannot contact Sam");
+    assert.equal(state.killer.targetRoomId, null);
+    assert.deepEqual(killerDecisions(state), []);
+    assert.equal(applyKillerDecision(state, { action: "move", target: "corridor", reason: "premature" }), false);
+    state.roomId = "archive"; state.currentAction = null; state.targetRoomId = null;
+    assert.equal(applyDecision(state, { action: "search", target: "archive", reason: "collect keycard" }), true);
+    const duration = state.currentAction!.duration;
+    tick(state, duration - 0.01);
+    assert.equal(state.keycard, false);
+    assert.equal(state.killer.spawned, false);
+    tick(state, 0.01);
+    assert.equal(state.keycard, true);
+    assert.equal(state.killer.spawned, true);
+    assert.equal(state.killer.roomId, "laboratory");
+    assert.equal(state.inventory.filter((item) => item === "SECURITY KEYCARD").length, 1);
+    tick(state, 0.01);
+    assert.equal(state.killer.spawned, true);
+    assert.equal(createState(123).killer.spawned, false);
+  }
 });
