@@ -717,11 +717,15 @@ export function createFacility(
   });
   const agentLabel = document.createElement("span");
   agentLabel.className = "facility-agent-label";
-  agentLabel.textContent = "ELIAS";
+  agentLabel.textContent = "サム";
   labels.append(agentLabel);
   const destinationLabel = document.createElement("span");
   destinationLabel.className = "facility-destination-label hidden";
   labels.append(destinationLabel);
+  const killerLabel = document.createElement("span");
+  killerLabel.className = "facility-killer-label";
+  killerLabel.textContent = "ぬこぬこさん";
+  labels.append(killerLabel);
   let latestState: GameState | undefined;
   let selection: RoomId = "reception";
   const reducedMotion = window.matchMedia(
@@ -732,6 +736,10 @@ export function createFacility(
     private lightGraphics!: Phaser.GameObjects.Graphics;
     private effectGraphics!: Phaser.GameObjects.Graphics;
     private agent!: Phaser.GameObjects.Container;
+    private samSprite?: Phaser.GameObjects.Image;
+    private killerSprite?: Phaser.GameObjects.Image;
+    private killerFallback!: Phaser.GameObjects.Container;
+    private killerAura!: Phaser.GameObjects.Graphics;
     private dust!: Phaser.GameObjects.Graphics;
     private dustParticles = Array.from({ length: 26 }, (_, i) => ({
       x: (i * 173.7) % W,
@@ -739,7 +747,12 @@ export function createFacility(
       r: i % 4 === 0 ? 1.1 : 0.6,
     }));
     private playerPoint: Point = center(roomFor("reception"));
+    private killerPoint: Point = center(roomFor("laboratory"));
     private hoverRoom: RoomId | null = null;
+    preload() {
+      this.load.image("sam-map", "/sam-map.webp");
+      this.load.image("nuko-map", "/nuko-map.webp");
+    }
     create() {
       const texture = this.textures.createCanvas("facility-plan", W, H)!;
       paintFacility(texture.getContext());
@@ -772,6 +785,29 @@ export function createFacility(
         head,
         lamp,
       ]);
+      this.agent.setDepth(3);
+      if (this.textures.exists("sam-map")) {
+        const source = this.textures.get("sam-map").getSourceImage() as HTMLImageElement;
+        this.samSprite = this.add.image(this.playerPoint.x, this.playerPoint.y, "sam-map")
+          .setOrigin(0.5, 0.94).setScale(85 / source.height).setDepth(4);
+        this.agent.setVisible(false);
+      }
+      this.killerAura = this.add.graphics().setDepth(2);
+      const killerShadow = this.add.ellipse(0, 3, 32, 13, 0x18020e, 0.8);
+      const killerBody = this.add.graphics();
+      killerBody.fillStyle(0xd299b9, 0.9);
+      killerBody.fillCircle(0, -26, 8);
+      killerBody.fillTriangle(0, -20, -16, 4, 16, 4);
+      killerBody.lineStyle(3, 0xb96d96);
+      killerBody.lineBetween(-5, 2, -7, 13);
+      killerBody.lineBetween(5, 2, 7, 13);
+      this.killerFallback = this.add.container(this.killerPoint.x, this.killerPoint.y, [killerShadow, killerBody]).setDepth(4);
+      if (this.textures.exists("nuko-map")) {
+        const source = this.textures.get("nuko-map").getSourceImage() as HTMLImageElement;
+        this.killerSprite = this.add.image(this.killerPoint.x, this.killerPoint.y, "nuko-map")
+          .setOrigin(0.5, 0.98).setScale(95 / source.height).setDepth(5);
+        this.killerFallback.setVisible(false);
+      }
       for (const r of ROOMS) {
         const zone = this.add
           .zone(r.x, r.y, r.w, r.h)
@@ -805,6 +841,30 @@ export function createFacility(
       this.playerPoint.y += (target.y - this.playerPoint.y) * smoothing;
       const { x, y } = this.playerPoint;
       this.agent.setPosition(x, y);
+      this.samSprite?.setPosition(x, y);
+      if (this.samSprite && Math.abs(x - previous.x) > 0.1) this.samSprite.setFlipX(x < previous.x);
+      if (state) {
+        const killer = state.killer;
+        const destination = killer.targetRoomId ? routePosition(killer.roomId, killer.targetRoomId, killer.progress) : center(roomFor(killer.roomId));
+        const previousKillerX = this.killerPoint.x;
+        this.killerPoint.x += (destination.x - this.killerPoint.x) * smoothing;
+        this.killerPoint.y += (destination.y - this.killerPoint.y) * smoothing;
+        this.killerSprite?.setPosition(this.killerPoint.x, this.killerPoint.y);
+        if (this.killerSprite && Math.abs(this.killerPoint.x - previousKillerX) > 0.1) this.killerSprite.setFlipX(this.killerPoint.x < previousKillerX);
+        this.killerFallback.setPosition(this.killerPoint.x, this.killerPoint.y);
+        this.killerAura.clear();
+        this.killerAura.lineStyle(killer.encountered ? 2 : 1, 0xe691b3, killer.encountered ? 0.8 : 0.45);
+        this.killerAura.strokeEllipse(this.killerPoint.x, this.killerPoint.y, 48, 23);
+        const approaching = Math.hypot(this.killerPoint.x - x, this.killerPoint.y - y) < 120;
+        if (approaching) {
+          this.killerAura.lineStyle(2, 0xe59b8c, 0.5);
+          this.killerAura.strokeCircle(this.killerPoint.x, this.killerPoint.y, 36);
+        }
+        killerLabel.style.left = `${this.killerPoint.x / W * 100}%`;
+        killerLabel.style.top = `${this.killerPoint.y / H * 100}%`;
+        killerLabel.classList.toggle("approaching", approaching);
+        killerLabel.textContent = approaching ? "ぬこぬこさん · 接近" : "ぬこぬこさん";
+      }
       agentLabel.style.left = `${x / W * 100}%`;
       agentLabel.style.top = `${y / H * 100}%`;
       const moving =

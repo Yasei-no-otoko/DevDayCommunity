@@ -94,16 +94,16 @@ export function mountBlacksite(root: HTMLElement): () => void {
     </header>
     <section class="briefing" aria-label="実験のルール"><span><b>あなたは怪異。</b> AIを閉じ込めろ。</span><span><b>勝利</b> 恐怖100 または180秒阻止</span><span><b>操作</b> 開始 → 部屋選択 → 1〜4で干渉</span><span class="briefing-loss">鍵・電源を確保したAIが脱出すると敗北</span></section>
     <main class="console" aria-label="施設監視コンソール">
-      <section class="subject-panel"><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span>${svg("signal", 13)}</div><div><h2>ELIAS</h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">S—014</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} 選択された行動</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">ELIASの脱出開始を待っています。</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
-      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/elias-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>S—014</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑</div><div class="map-legend"><span><i class="agent-dot"></i> ELIAS</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><span class="room-hint" id="room-hint">ELIASを自動追跡</span></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
-      <section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><p id="target-summary" class="target-summary">対象：受付 · ELIASが在室</p><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 21)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}<kbd>${i + 1}</kbd></strong><span class="sabotage-detail">${item.detail}</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p></section>
+      <section class="subject-panel"><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span><img id="subject-portrait" src="/sam-altman.webp" alt="" aria-hidden="true">${svg("signal", 13)}</div><div class="subject-name"><h2>SAM <small>サム・アルトマン</small></h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">AI</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} 選択された行動</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">サム・アルトマンの脱出開始を待っています。</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
+      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div><span>TIBO SUPPORT</span><strong>使用間隔リセット</strong><small>4つの干渉を再使用可能</small></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
+      <section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select" aria-describedby="target-summary room-hint">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><p id="target-summary" class="target-summary">対象：受付 · サムが在室</p><span class="room-hint sr-only" id="room-hint">サムを自動追跡</span></div><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 36)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}<kbd>${i + 1}</kbd></strong><span class="sabotage-detail">持続${SABOTAGE[item.type].duration}秒 · CD ${SABOTAGE[item.type].cooldown}秒</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p></section>
     </main>
     <section class="event-console" aria-label="最新の記録"><div class="log-heading"><span><i></i> ACTIVITY LOG</span><button class="text-button" id="toggle-log">全記録 ↗</button></div><div id="activity-log"></div></section>
     <dialog id="api-dialog" aria-labelledby="api-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONNECTION / DECISION</div><h2 id="api-title">接続・判断の詳細</h2><p id="runtime-note"></p><div class="api-details" id="api-details"><p>方針生成：Agents API ／ 行動の選択：Decisions API。表示するのは返された方針と選択結果です。</p><dl><div><dt>動作</dt><dd id="detail-mode">ローカルルール</dd></div><div><dt>モデル</dt><dd id="detail-models">未取得</dd></div><div><dt>選択肢数</dt><dd id="detail-choices">—</dd></div><div><dt>API confidence</dt><dd id="detail-confidence">未受信（勝率ではありません）</dd></div><div><dt>応答時間</dt><dd id="detail-latency">—</dd></div><div><dt>Request ID</dt><dd id="detail-request">未受信</dd></div><div><dt>Decision ID</dt><dd id="detail-decision">未受信</dd></div></dl><p id="detail-error" class="detail-error"></p></div><p class="dialog-fine">BUILT WITH <a href="https://developers.openai.com/api/docs/guides/agents-api/overview" target="_blank" rel="noreferrer">Agents API</a> + <a href="https://developers.openai.com/api/docs/guides/decisions" target="_blank" rel="noreferrer">Decisions API</a> · EXPERIMENT / 007</p></dialog>
     <dialog id="log-dialog" aria-labelledby="log-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">EXPERIMENT / 007</div><h2 id="log-title">実験の全記録</h2><div id="full-log"></div></dialog>
-    <dialog id="thought-dialog" aria-labelledby="thought-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">ELIAS / SELECTED ACTION</div><h2 id="thought-title">選択された行動の説明</h2><p class="dialog-fine">実APIモードでは、Decisions APIが選択した候補にあらかじめ付けた説明です。ELIASの独白や内部思考ではありません。</p><p id="full-thought"></p><h3>Agents APIの脱出方針</h3><p id="full-plan">実APIモードで受信すると表示します。</p></dialog>
+    <dialog id="thought-dialog" aria-labelledby="thought-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">サム・アルトマン / SELECTED ACTION</div><h2 id="thought-title">選択された行動の説明</h2><p class="dialog-fine">実APIモードでは、Decisions APIが選択した候補にあらかじめ付けた説明です。サム・アルトマンの独白や内部思考ではありません。</p><p id="full-thought"></p><h3>Agents APIの脱出方針</h3><p id="full-plan">実APIモードで受信すると表示します。</p></dialog>
     <dialog id="result-dialog" aria-labelledby="result-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div id="result" class="result" role="region" aria-label="実験結果" aria-live="polite"></div></dialog>
-    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>エージェント「ELIAS」は自ら判断し、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — 進路を遮断します。AIは迂回や解錠を試みます。</li><li><b>囁き・怪異</b> — 同じ部屋のAIの恐怖を高めます。</li></ol><p>恐怖が100、または制限時間180秒であなたの勝利。AIは深呼吸で恐怖を抑えるため、部屋とタイミングの選択が鍵です。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでELIASの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
+    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — 進路を遮断します。AIは迂回や解錠を試みます。</li><li><b>囁き・怪異</b> — 同じ部屋のAIの恐怖を高めます。</li></ol><p>恐怖が100、または制限時間180秒であなたの勝利。AIは深呼吸で恐怖を抑えるため、部屋とタイミングの選択が鍵です。</p><p>美少女キラー「ぬこぬこさん」はサムを追尾。サムは初遭遇まで彼女の位置を知りません。遭遇後は回避を試みます。ときどき現れるTiboは4つの干渉の使用間隔だけをリセットします。エネルギーと実験の進行は戻りません。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は初期状態でオフです。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
 
   const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
     root.querySelector<T>(`#${id}`)!;
@@ -111,6 +111,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   const dialogOpeners = new WeakMap<HTMLDialogElement, HTMLElement>();
   function openDialog(dialog: HTMLDialogElement, opener?: HTMLElement) {
     if (disposed || dialog.open) return;
+    tiboWasVisible = false;
     if (state.status === "running") state.paused = true;
     for (const other of dialogs) if (other.open) other.close();
     dialogOpeners.set(dialog, opener || (document.activeElement instanceof HTMLElement ? document.activeElement : $("start")));
@@ -128,7 +129,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
     });
     dialog.querySelectorAll<HTMLElement>("[data-close-dialog]").forEach((button) => listen(button, "click", () => dialog.close()));
   }
-  let state = createState();
+  const freshState = () => createState(crypto.getRandomValues(new Uint32Array(1))[0]);
+  let state = freshState();
   let selectedRoom: RoomId = "reception";
   let following = true;
   let sessionId = "";
@@ -156,17 +158,26 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let lastChoiceCount = 0;
   let lastLatency = 0;
   let lastResultKey = "";
-  let lastFeedback = "まずは実験を開始。追跡ONなら、ELIASがいる場所を自動で選びます。";
+  let lastFeedback = "まずは実験を開始。追跡ONなら、サム・アルトマンがいる場所を自動で選びます。";
   let pendingDecision: Decision | null = null;
   // Presentation state stays outside the deterministic simulation and API history.
   let watchback: { record: InterventionRecord; phase: "queued" | "active"; remaining: number } | null = null;
   let watchbackSeen = false;
   let watchbackFocus: HTMLElement | null = null;
+  let lastTiboAppearance = 0;
+  let tiboRemaining = 0;
+  let tiboWasVisible = false;
   const watchbackElement = $("watchback");
   const mapElement = $("facility");
   const watchbackImage = root.querySelector<HTMLImageElement>(".watchback-image")!;
   listen(watchbackImage, "load", () => watchbackElement.classList.add("has-image"));
   if (watchbackImage.complete && watchbackImage.naturalWidth) watchbackElement.classList.add("has-image");
+  for (const [id, className] of [["subject-portrait", "has-portrait"], ["tibo-image", "has-portrait"]]) {
+    const image = $<HTMLImageElement>(id);
+    const ready = () => image.parentElement!.classList.add(className);
+    listen(image, "load", ready);
+    if (image.complete && image.naturalWidth) ready();
+  }
   function watchbackActive() { return watchback?.phase === "active"; }
   function presentationReady() {
     return state.status === "running" && !state.paused && !state.thinking && !apiPending && !document.hidden && !dialogs.some((dialog) => dialog.open);
@@ -383,10 +394,12 @@ export function mountBlacksite(root: HTMLElement): () => void {
         facilityDescription: JSON.stringify({
           rooms: ROOMS.map(({ id, clue }) => ({ id, clue })),
           connections: CONNECTIONS,
-          goal: "Find keycard in archive, restore generator, unlock exit. Avoid fear100 and deadline180. Player sabotages rooms.",
+          goal: "AI-controlled game avatar Sam Altman finds keycard in archive, restores generator, unlocks exit. Avoid fear100 and deadline180. Player is the building entity and sabotages rooms.",
+          killerRules: "Nuko Nuko is a girl killer who pursues Sam through connected rooms. Sam does not know her location until their first encounter. After that, avoid the known killer while completing escape objectives. Encounters raise fear; she does not end the game instantly.",
+          helperRules: "Tibo occasionally resets the cooldowns of the four player interventions. Energy, progress and active effects are unchanged.",
         }),
         strategicPlan:
-          "You are ELIAS. In Japanese, give a concise 2-sentence escape plan grounded in this facility. Your plan will guide Decisions API action selection.",
+          "You control the fictional game avatar Sam Altman. In Japanese, give a concise 2-sentence escape plan grounded in this facility. You cannot know the killer location before the first encounter; after encountering her, avoid known danger while securing keycard, power and exit. Your plan will guide Decisions API action selection.",
       });
       if (gen !== generation) {
         closeSession(result.sessionId, result.sessionToken);
@@ -407,7 +420,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
         reason: plan,
         source: "api",
       });
-      toast(state.paused ? "Agents APIの脱出方針を受信しました。再開するとELIASが動きます。" : "Agents APIに接続しました。ELIASが脱出を開始します。");
+      toast(state.paused ? "Agents APIの脱出方針を受信しました。再開するとサム・アルトマンが動きます。" : "Agents APIに接続しました。サム・アルトマンが脱出を開始します。");
     } catch (error) {
       if (gen === generation) {
         recordApiError(error);
@@ -460,7 +473,14 @@ export function mountBlacksite(root: HTMLElement): () => void {
           effects: state.effects,
           clues: state.clues,
           strategy: plan,
-          recentActions: state.decisions.slice(0, 6),
+          recentActions: state.decisions.filter((entry) => entry.source !== "system" && entry.action !== "plan").slice(0, 6),
+          ...(state.killer.encountered ? { knownKiller: {
+            name: "ぬこぬこさん",
+            roomId: state.killer.roomId,
+            targetRoomId: state.killer.targetRoomId,
+            encounterCount: state.killer.encounterCount,
+            lastEncounterAt: state.killer.lastEncounterAt,
+          } } : {}),
         },
         allowedDecisions: choices.map((d, i) => ({
           id: `choice_${i}`,
@@ -539,7 +559,11 @@ export function mountBlacksite(root: HTMLElement): () => void {
     sessionId = "";
     sessionToken = "";
     plan = "";
-    state = createState();
+    state = freshState();
+    lastTiboAppearance = 0;
+    tiboRemaining = 0;
+    tiboWasVisible = false;
+    $("tibo-banner").classList.add("hidden");
     watchback = null;
     watchbackSeen = false;
     watchbackFocus = null;
@@ -556,7 +580,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     lastChoiceCount = 0;
     lastLatency = 0;
     lastResultKey = "";
-    lastFeedback = "実験をリセットしました。追跡ONでELIASを狙えます。";
+    lastFeedback = "実験をリセットしました。追跡ONでサム・アルトマンを狙えます。";
     lastStatus = "waiting";
     selectedRoom = "reception";
     lastLogKey = "";
@@ -590,7 +614,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
       tone(type);
       const name = interventions.find((i) => i.type === type)!.name;
       const fearGain = Number((state.fear - before).toFixed(1));
-      lastFeedback = `${roomName(selectedRoom)}に${name}。${stopped ? "進路を遮断！ELIASの移動を止めました。" : occupied || incoming ? `${fearGain ? `恐怖 +${fearGain}。` : ""}この部屋に干渉が続きます。` : "先回りして配置。ELIASが来ると効果を発揮します。"}`;
+      lastFeedback = `${roomName(selectedRoom)}に${name}。${stopped ? "進路を遮断！サムの移動を止めました。" : occupied || incoming ? `${fearGain ? `恐怖 +${fearGain}。` : ""}この部屋に干渉が続きます。` : "先回りして配置。サム・アルトマンが来ると効果を発揮します。"}`;
       toast(lastFeedback);
       render();
     }
@@ -635,10 +659,10 @@ export function mountBlacksite(root: HTMLElement): () => void {
       }
     } else if (state.status === "running") {
       title = state.paused ? "ローカル体験を一時停止しています" : "ローカルルールで対戦中";
-      note = "ELIASの移動先を封鎖したり、在室する部屋に囁いて恐怖を高めてください。";
+      note = "サムの移動先を封鎖したり、在室する部屋に囁いて恐怖を高めてください。";
     }
     if (state.status === "escaped" || state.status === "contained") {
-      title = state.status === "contained" ? "封じ込め成功 · あなたの勝利" : "ELIASが脱出 · あなたの敗北";
+      title = state.status === "contained" ? "封じ込め成功 · あなたの勝利" : "サム・アルトマンが脱出 · あなたの敗北";
       note = "結果を振り返って、もう一度挑戦できます。";
     }
     setText("mode-label", live ? "OpenAI 実API" : "ローカル体験 · サインイン不要");
@@ -660,12 +684,20 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (following) selectedRoom = state.targetRoomId || state.roomId;
     const room = ROOMS.find((r) => r.id === selectedRoom)!;
     const running = state.status === "running";
+    setText("killer-status", state.killer.encountered ? `ぬこぬこさん · 遭遇 ${state.killer.encounterCount}回` : "ぬこぬこさん · サムは未遭遇");
+    $("killer-status").classList.toggle("encountered", state.killer.encountered);
+    if (state.tibo.appearances > lastTiboAppearance) {
+      lastTiboAppearance = state.tibo.appearances;
+      tiboRemaining = 2.6;
+      tiboWasVisible = false;
+    }
+    $("tibo-banner").classList.toggle("hidden", tiboRemaining <= 0);
     $("room-number").textContent = room.label;
     ($("room-select") as HTMLSelectElement).value = selectedRoom;
     $("follow").classList.toggle("active", following);
     $("follow").setAttribute("aria-pressed", String(following));
-    setText("room-hint", selectedRoom === state.roomId ? "ELIASが在室" : selectedRoom === state.targetRoomId ? "ELIASが移動中 → この部屋へ" : "ELIASは別の部屋にいます · 先回りして配置");
-    setText("target-summary", `対象：${roomName(selectedRoom)} · ${selectedRoom === state.roomId ? "ELIASが在室" : selectedRoom === state.targetRoomId ? "ELIASの移動先" : "現在は無人"}`);
+    setText("room-hint", selectedRoom === state.roomId ? "サムが在室" : selectedRoom === state.targetRoomId ? "サムが移動中 → この部屋へ" : "サムは別の部屋にいます · 先回りして配置");
+    setText("target-summary", `対象：${roomName(selectedRoom)} · ${selectedRoom === state.roomId ? "サムが在室" : selectedRoom === state.targetRoomId ? "サムの移動先" : "現在は無人"}`);
     const followLabel = $("follow").querySelector("span")!;
     if (followLabel.textContent !== `追跡 ${following ? "ON" : "OFF"}`) followLabel.textContent = `追跡 ${following ? "ON" : "OFF"}`;
     setText("interference-feedback", lastFeedback);
@@ -679,14 +711,14 @@ export function mountBlacksite(root: HTMLElement): () => void {
     $("interventions").textContent = state.interventions
       .toString()
       .padStart(2, "0");
-    const subjectStatus = state.paused ? "実験を一時停止中" : state.thinking ? "OpenAIの応答待ち" : state.status === "waiting" ? "実験の開始待ち" : state.status === "escaped" ? "施設から脱出" : state.status === "contained" ? "封じ込め成功" : "脱出経路を探索中";
+    const subjectStatus = state.paused ? "実験を一時停止中" : state.thinking ? "OpenAIの応答待ち" : state.status === "waiting" ? "実験の開始待ち" : state.status === "escaped" ? "施設から脱出" : state.status === "contained" ? "封じ込め成功" : state.killer.encountered ? "キラーを警戒 · 逃走中" : "脱出経路を探索中";
     if ($("subject-status").textContent?.trim() !== subjectStatus) $("subject-status").innerHTML = `<i></i> ${subjectStatus}`;
     const selectedAction = state.currentAction || state.decisions.find((entry) => entry.source !== "system" && entry.action !== "plan");
     setText("thought", state.thinking
       ? "OpenAIの応答を待っています。ゲーム時間は停止中です。"
       : apiError
         ? "通信を一時停止しました。上の接続状態を確認してください。"
-        : selectedAction?.reason || (state.status === "waiting" ? "ELIASの脱出開始を待っています。" : "次の行動を選択します。"));
+        : selectedAction?.reason || (state.status === "waiting" ? "サム・アルトマンの脱出開始を待っています。" : "次の行動を選択します。"));
     setText("full-thought", $("thought").textContent || "判断を待っています。");
     setText("full-plan", plan || "実APIモードで脱出方針を受信すると表示します。");
     $("action-progress").style.width = `${state.progress * 100}%`;
@@ -720,8 +752,10 @@ export function mountBlacksite(root: HTMLElement): () => void {
       const available = interferenceUse(type);
       button.disabled = !!blocked;
       setText(`sabotage-state-${type}`, blocked || available);
-      button.setAttribute("aria-label", `${interventions.find((item) => item.type === type)!.name}、エネルギー${SABOTAGE[type].cost}、${roomName(selectedRoom)}。${blocked || available}`);
-      button.title = blocked || available;
+      const item = interventions.find((item) => item.type === type)!;
+      const rule = SABOTAGE[type];
+      button.setAttribute("aria-label", `${item.name}、エネルギー${rule.cost}、${roomName(selectedRoom)}。${item.detail}。再使用間隔${rule.cooldown}秒。${blocked || available}`);
+      button.title = `${item.detail} / エネルギー ${rule.cost} / 再使用間隔 ${rule.cooldown}秒 / ${blocked || available}`;
     });
     renderRuntime();
     const logs = state.decisions;
@@ -740,8 +774,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
       if (resultKey !== lastResultKey) {
         lastResultKey = resultKey;
         const won = state.status === "contained";
-        const reason = won ? state.fear >= 100 ? "恐怖が100に到達。ELIASは脱出を断念した。" : "180秒の脱出猶予が終了。施設への封じ込めに成功した。" : "ELIASは鍵と電源を確保し、避難口を解錠した。";
-        $("result").innerHTML = `<span class="eyebrow">EXPERIMENT COMPLETE</span><h2 id="result-title">${won ? "あなたの勝利" : "ELIASが脱出"}</h2><strong class="result-verdict">${won ? "封じ込め成功" : "あなたの敗北"}</strong><p>${reason}</p><dl class="result-stats"><div><dt>経過時間</dt><dd>${formatTime(Math.ceil(state.elapsed))}</dd></div><div><dt>干渉</dt><dd>${state.interventions}回</dd></div><div><dt>最終恐怖</dt><dd>${Math.round(state.fear)}/100</dd></div><div><dt>ELIASの確保物</dt><dd>鍵 ${state.keycard ? "取得済" : "未取得"} ／ 電源 ${state.power ? "復旧済" : "未復旧"}</dd></div></dl><p class="result-tip">${won ? "施設は、また静けさを取り戻した。次は別の干渉を試してみよう。" : "次は移動先を封鎖して時間を稼ごう。ELIASがいる部屋への囁きも有効。"}</p><button class="start-button" id="result-retry">もう一度挑戦 ${svg("arrow", 16)}</button>`;
+        const reason = won ? state.fear >= 100 ? "恐怖が100に到達。サム・アルトマンは脱出を断念した。" : "180秒の脱出猶予が終了。施設への封じ込めに成功した。" : "サム・アルトマンは鍵と電源を確保し、避難口を解錠した。";
+        $("result").innerHTML = `<span class="eyebrow">EXPERIMENT COMPLETE</span><h2 id="result-title">${won ? "あなたの勝利" : "サム・アルトマンが脱出"}</h2><strong class="result-verdict">${won ? "封じ込め成功" : "あなたの敗北"}</strong><p>${reason}</p><dl class="result-stats"><div><dt>経過時間</dt><dd>${formatTime(Math.ceil(state.elapsed))}</dd></div><div><dt>干渉</dt><dd>${state.interventions}回</dd></div><div><dt>最終恐怖</dt><dd>${Math.round(state.fear)}/100</dd></div><div><dt>サム・アルトマンの確保物</dt><dd>鍵 ${state.keycard ? "取得済" : "未取得"} ／ 電源 ${state.power ? "復旧済" : "未復旧"}</dd></div></dl><p class="result-tip">${won ? "施設は、また静けさを取り戻した。次は別の干渉を試してみよう。" : "次は移動先を封鎖して時間を稼ごう。サム・アルトマンがいる部屋への囁きも有効。"}</p><button class="start-button" id="result-retry">もう一度挑戦 ${svg("arrow", 16)}</button>`;
         openDialog($<HTMLDialogElement>("result-dialog"), $("open-result"));
       }
     }
@@ -844,6 +878,10 @@ export function mountBlacksite(root: HTMLElement): () => void {
     const dt = Math.min((now - last) / 1000, 0.15);
     last = now;
     advanceWatchback(dt);
+    const tiboVisible = tiboRemaining > 0 && !watchbackActive() && !document.hidden && !dialogs.some((dialog) => dialog.open);
+    // Count only displayed frames, so a camera cue or modal cannot consume the notice.
+    if (tiboVisible && tiboWasVisible) tiboRemaining = Math.max(0, tiboRemaining - dt);
+    tiboWasVisible = tiboVisible;
     if (!watchbackActive() && !state.thinking && !document.hidden && !dialogs.some((dialog) => dialog.open)) {
       if (pendingDecision && !state.paused && state.status === "running") {
         const decision = pendingDecision;
@@ -864,6 +902,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     frameId = requestAnimationFrame(frame);
   }
   listen(document, "visibilitychange", () => {
+    tiboWasVisible = false;
     if (document.hidden && state.status === "running") {
       state.paused = true;
       render();
@@ -884,6 +923,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
     watchback = null;
     watchbackSeen = false;
     watchbackFocus = null;
+    tiboRemaining = 0;
+    tiboWasVisible = false;
     for (const dialog of dialogs) if (dialog.open) dialog.close();
     facility.destroy();
     if (audio) {
