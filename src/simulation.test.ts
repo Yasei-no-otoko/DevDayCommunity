@@ -13,9 +13,18 @@ import {
   type SabotageType,
 } from "./simulation.ts";
 
+function keepKillerOutOfRoute(state: ReturnType<typeof createState>) {
+  state.killer.roomId = "laboratory";
+  state.killer.targetRoomId = "laboratory";
+  state.killer.moveElapsed = 0;
+  state.killer.moveDuration = Number.POSITIVE_INFINITY;
+  state.killer.progress = 0;
+}
+
 test("autonomous agent collects objectives and escapes in a playable time window", () => {
   const state = createState();
   state.status = "running";
+  keepKillerOutOfRoute(state);
   for (let second = 0; second < 180 && state.status === "running"; second++)
     tick(state, 1);
   assert.equal(state.status, "escaped");
@@ -28,8 +37,7 @@ test("autonomous agent collects objectives and escapes in a playable time window
   );
   assert.ok(state.clues.length >= 4);
   assert.ok(state.decisions.length <= 40);
-  assert.equal(state.killer.encountered, true);
-  assert.ok(state.killer.encounterCount >= 1);
+  assert.equal(state.terminalReason, "escaped");
 });
 
 test("interventions spend energy, respect cooldowns, expire, and cannot win instantly", () => {
@@ -89,6 +97,7 @@ test("validator rejects malformed API decisions, nonadjacent moves, and prematur
 test("locks provoke a legal override or safer route rather than an impossible move", () => {
   const state = createState();
   state.status = "running";
+  keepKillerOutOfRoute(state);
   assert.equal(sabotage(state, "lock", "ward"), true);
   const decision = chooseLocalAction(state);
   assert.equal(decision.action, "move");
@@ -96,6 +105,41 @@ test("locks provoke a legal override or safer route rather than an impossible mo
   assert.equal(applyDecision(state, decision), true);
   tick(state, 180);
   assert.equal(state.status, "escaped");
+});
+
+test("a sealed room blocks Sam from entering or leaving and reports the blocked side", () => {
+  const entering = createState();
+  entering.status = "running";
+  entering.controller = "api";
+  entering.locks.ward = 12;
+  assert.equal(applyDecision(entering, { action: "move", target: "ward", reason: "入る" }, "api"), false);
+  assert.match(entering.decisions[0]!.reason, /入室できない/);
+
+  const exiting = createState();
+  exiting.status = "running";
+  exiting.controller = "api";
+  exiting.roomId = "ward";
+  exiting.locks.ward = 12;
+  assert.equal(applyDecision(exiting, { action: "move", target: "archive", reason: "出る" }, "api"), false);
+  assert.match(exiting.decisions[0]!.reason, /退室できない/);
+  assert.equal(exiting.roomId, "ward");
+});
+
+test("locking Sam's occupied room interrupts his exit and keeps him there until it opens", () => {
+  const state = createState();
+  state.status = "running";
+  state.controller = "api";
+  keepKillerOutOfRoute(state);
+  assert.equal(applyDecision(state, { action: "move", target: "corridor", reason: "退室する" }), true);
+  assert.equal(sabotage(state, "lock", "reception"), true);
+  assert.equal(state.currentAction, null);
+  assert.equal(state.roomId, "reception");
+  assert.equal(state.interventionHistory[0]?.interruptedMove, true);
+  assert.equal(applyDecision(state, { action: "move", target: "corridor", reason: "退室する" }), false);
+  assert.equal(state.roomId, "reception");
+
+  tick(state, 12);
+  assert.equal(applyDecision(state, { action: "move", target: "corridor", reason: "扉が開いたので退室する" }), true);
 });
 
 test("panic response reduces stress and avoids repeated blind progress", () => {
@@ -112,6 +156,7 @@ test("terminal and paused states do not drift and reset creates fresh state", ()
   const state = createState();
   state.status = "running";
   state.controller = "api";
+  keepKillerOutOfRoute(state);
   tick(state, 180);
   assert.equal(state.status, "contained");
   assert.equal(state.timeRemaining, 0);
@@ -135,6 +180,7 @@ test("a seeded encounter allows the player to win by sealing the next doorway", 
   // Tibo varies the available sealing windows; this proves a winning route exists.
   const state = createState(1);
   state.status = "running";
+  keepKillerOutOfRoute(state);
   for (let frame = 0; frame < 1801 && state.status === "running"; frame++) {
     // Door timing matters: save energy for the escape route rather than spam every effect.
     sabotage(state, "lock", state.targetRoomId ?? state.roomId);
@@ -153,6 +199,7 @@ test("action completion and effect expiry are independent of rendering frame siz
   function run(frameSize: number) {
     const state = createState();
     state.status = "running";
+    keepKillerOutOfRoute(state);
     sabotage(state, "blackout", "archive");
     while (state.status === "running") tick(state, frameSize);
     return state;
@@ -264,9 +311,11 @@ test("destination hits record fear without implying that every effect stops move
     fearDelta: 1,
   });
   assert.equal(sabotage(state, "lock", "reception"), true);
-  assert.equal(state.currentAction, action);
+  assert.equal(state.currentAction, null);
+  assert.equal(state.targetRoomId, null);
   assert.equal(state.interventionHistory[0].affectedSubject, true);
-  assert.equal(state.interventionHistory[0].interruptedMove, false);
+  assert.equal(state.interventionHistory[0].type, "lock");
+  assert.equal(state.interventionHistory[0].interruptedMove, true);
   assert.equal(state.interventionHistory[0].fearDelta, 0);
 });
 
@@ -292,6 +341,7 @@ test("intervention history retains the latest twelve successful records and rese
   const state = createState();
   state.status = "running";
   state.controller = "api";
+  keepKillerOutOfRoute(state);
   for (let index = 0; index < 14; index++) {
     assert.equal(sabotage(state, "whisper", "archive"), true);
     tick(state, 10.1);
@@ -315,7 +365,7 @@ test("intervention history retains the latest twelve successful records and rese
   assert.equal(state.interventionHistory[0].id, 14);
 });
 
-test("the pursuer starts opposite Sam, takes legal edges, and moves more slowly", () => {
+test("the pursuer approaches Sam over legal edges and contact ends the run", () => {
   const state = createState(123);
   state.status = "running";
   assert.equal(state.roomId, "reception");
@@ -339,8 +389,9 @@ test("the pursuer starts opposite Sam, takes legal edges, and moves more slowly"
       assert.ok(moveDuration > subject.currentAction!.duration);
     }
   }
-  assert.ok(transitions >= 2);
-  assert.equal(state.status, "escaped");
+  assert.ok(transitions >= 1);
+  assert.equal(state.status, "contained");
+  assert.equal(state.terminalReason, "contact");
 });
 
 test("Sam cannot route around an unseen killer but avoids its room after first contact", () => {
@@ -367,7 +418,7 @@ test("Sam cannot route around an unseen killer but avoids its room after first c
   assert.equal(chooseLocalAction(state).action, "search");
 });
 
-test("contact records first awareness and applies bounded fear only once per twelve seconds", () => {
+test("contact with the pursuer immediately ends the run with a distinct outcome", () => {
   const state = createState(123);
   state.status = "running";
   state.controller = "api";
@@ -376,16 +427,16 @@ test("contact records first awareness and applies bounded fear only once per twe
   assert.equal(state.killer.encountered, true);
   assert.equal(state.killer.encounterCount, 1);
   assert.equal(state.killer.lastEncounterAt, 0);
-  assert.ok(Math.abs(state.fear - 13.0012) < 1e-7);
-  tick(state, 11.98);
-  assert.equal(state.killer.encounterCount, 1);
-  tick(state, 0.02);
-  assert.equal(state.killer.encounterCount, 2);
-  assert.ok(Math.abs(state.killer.lastEncounterAt! - 12) < 1e-7);
-  assert.equal(state.status, "running");
+  assert.equal(state.status, "contained");
+  assert.equal(state.terminalReason, "contact");
+  assert.equal(state.outcome, "ぬこぬこさんがサムに接触した。被験者ロスト。");
+  assert.equal(state.decisions[0]!.source, "system");
+  const frozen = JSON.stringify(state);
+  tick(state, 30);
+  assert.equal(JSON.stringify(state), frozen);
 });
 
-test("first contact interrupts unfinished stationary work for a fresh API decision", () => {
+test("contact ends unfinished stationary work and movement immediately", () => {
   for (const action of ["search", "restore", "unlock", "wait"] as const) {
     const state = createState(123);
     state.status = "running";
@@ -405,61 +456,46 @@ test("first contact interrupts unfinished stationary work for a fresh API decisi
     assert.equal(state.currentAction, null, action);
     assert.equal(state.targetRoomId, null, action);
     assert.equal(state.progress, 0, action);
-    assert.equal(state.status, "running", action);
+    assert.equal(state.status, "contained", action);
+    assert.equal(state.terminalReason, "contact", action);
     if (action === "search") assert.equal(state.keycard, false);
     if (action === "restore") assert.equal(state.power, false);
   }
-});
-
-test("first contact preserves movement and subsequent contact preserves stationary work", () => {
   const moving = createState(123);
   moving.status = "running";
   moving.controller = "api";
   assert.equal(applyDecision(moving, { action: "move", target: "ward", reason: "leave" }), true);
   tick(moving, 0.5);
-  const move = moving.currentAction;
   const progress = moving.progress;
   moving.killer.roomId = moving.roomId;
   moving.killer.targetRoomId = null;
   tick(moving, 0.01);
   assert.equal(moving.killer.encounterCount, 1);
-  assert.equal(moving.currentAction, move);
-  assert.equal(moving.targetRoomId, "ward");
-  assert.ok(moving.progress > progress);
-
-  const waiting = createState(123);
-  waiting.status = "running";
-  waiting.controller = "api";
-  waiting.killer.roomId = waiting.roomId;
-  tick(waiting, 11.99);
-  assert.equal(waiting.killer.encounterCount, 1);
-  assert.equal(applyDecision(waiting, { action: "wait", target: waiting.roomId, reason: "breathe" }), true);
-  const wait = waiting.currentAction;
-  tick(waiting, 0.02);
-  assert.equal(waiting.killer.encounterCount, 2);
-  assert.equal(waiting.currentAction, wait);
-  assert.ok(waiting.progress > 0);
+  assert.equal(moving.currentAction, null);
+  assert.equal(moving.targetRoomId, null);
+  assert.equal(moving.progress, 0);
+  assert.ok(progress > 0);
+  assert.equal(moving.status, "contained");
+  assert.equal(moving.terminalReason, "contact");
 });
 
-test("a local first-contact interruption immediately leads to retreat and objective recovery", () => {
+test("Sam entering the pursuer's room causes an immediate failure", () => {
   const state = createState(123);
   state.status = "running";
-  state.roomId = "archive";
-  assert.equal(applyDecision(state, { action: "search", target: "archive", reason: "find key" }), true);
-  tick(state, 0.5);
+  state.controller = "api";
+  state.roomId = "corridor";
   state.killer.roomId = "archive";
-  state.killer.targetRoomId = null;
-  tick(state, 0.01);
+  state.killer.targetRoomId = "archive";
+  state.killer.moveDuration = Number.POSITIVE_INFINITY;
+  assert.equal(applyDecision(state, { action: "move", target: "archive", reason: "enter killer room" }, "api"), true);
+  tick(state, 10);
   assert.equal(state.killer.encountered, true);
-  assert.equal(state.keycard, false);
-  assert.equal(state.currentAction?.action, "move");
-  tick(state, 180);
-  assert.equal(state.status, "escaped");
-  assert.equal(state.keycard, true);
-  assert.equal(state.power, true);
+  assert.equal(state.status, "contained");
+  assert.equal(state.terminalReason, "contact");
+  assert.equal(state.roomId, "archive");
 });
 
-test("retreating after contact does not strand Sam away from an unfinished objective", () => {
+test("pursuer contact ends the run at the current room regardless of pending objective", () => {
   for (const roomId of ["archive", "generator", "exit"] as const) {
     const state = createState(123);
     state.status = "running";
@@ -469,13 +505,9 @@ test("retreating after contact does not strand Sam away from an unfinished objec
     if (roomId === "exit") state.power = true;
     tick(state, 0.01);
     assert.equal(state.killer.encountered, true);
-    assert.equal(state.currentAction?.action, "move", "contact prompts a retreat before working in the shared room");
-    tick(state, 180);
-    assert.equal(state.status, "escaped", roomId);
-    assert.equal(state.keycard, true);
-    assert.equal(state.power, true);
-    assert.equal(state.roomId, "exit");
-    assert.ok(state.elapsed < 100, "retreats must leave time to complete objectives");
+    assert.equal(state.currentAction, null, roomId);
+    assert.equal(state.status, "contained", roomId);
+    assert.equal(state.terminalReason, "contact", roomId);
   }
 });
 
@@ -567,11 +599,12 @@ test("waiting, pause, thinking, and terminal states freeze pursuit, randomness, 
   }
 });
 
-test("pursuit, encounters, seeded Tibo events, and objectives ignore incoming frame size", () => {
+test("pursuit contact and seeded Tibo events ignore incoming frame size", () => {
   function run(frameSize: number, controller: "local" | "api", interruptWork = false) {
     const state = createState(123);
     state.status = "running";
     state.controller = controller;
+    state.tibo.nextAppearanceAt = 0.1;
     if (interruptWork) {
       state.roomId = "archive";
       state.killer.roomId = "ward";
@@ -598,13 +631,12 @@ test("pursuit, encounters, seeded Tibo events, and objectives ignore incoming fr
     for (const controller of ["local", "api"] as const) {
       const expected = run(180, controller, interruptWork);
       assert.ok(expected.killer.encounterCount >= 1);
-      assert.ok(expected.tibo.appearances >= (controller === "api" && !interruptWork ? 4 : 1));
+      assert.ok(expected.tibo.appearances >= 1);
       compare(run(0.1, controller, interruptWork), expected);
       compare(run(0.5, controller, interruptWork), expected);
       if (controller === "local") {
-        assert.equal(expected.status, "escaped");
-        assert.equal(expected.keycard, true);
-        assert.equal(expected.power, true);
+        assert.equal(expected.status, "contained");
+        assert.equal(expected.terminalReason, "contact");
       }
     }
   }
@@ -660,6 +692,7 @@ test("ward concealment prevents contact and sends the pursuer away before Sam re
   assert.equal(canHide(state), false, "the same spot cannot immediately hide Sam again");
   tick(state, HIDEOUT.lostDuration - 0.1);
   assert.notEqual(state.killer.targetRoomId, "ward", "the killer keeps searching elsewhere for the promised respite");
+  keepKillerOutOfRoute(state);
   state.controller = "local";
   tick(state, 180);
   assert.equal(state.status, "escaped");
@@ -668,11 +701,17 @@ test("ward concealment prevents contact and sends the pursuer away before Sam re
   assert.equal(state.hideout.completed, 1, "local policy returns to its escape objectives after one refuge visit");
 });
 
-test("eight unopposed seeds send Sam to the ward hideout and then complete the escape", () => {
+test("eight known-threat seeds send Sam to the ward hideout and then complete the escape", () => {
   for (const seed of [1, 2, 3, 7, 42, 123, 0x53414d, 0xffffffff]) {
     const state = createState(seed);
     state.status = "running";
-    tick(state, 180);
+    state.killer.encountered = true;
+    state.killer.encounterCount = 1;
+    keepKillerOutOfRoute(state);
+    for (let frame = 0; frame < 1800 && state.status === "running"; frame++) {
+      tick(state, 0.1);
+      if (state.hideout.completed) keepKillerOutOfRoute(state);
+    }
     assert.equal(state.status, "escaped", `seed ${seed}`);
     assert.equal(state.hideout.completed, 1, `seed ${seed}`);
     assert.ok(state.visited.includes("ward"), `seed ${seed}`);
