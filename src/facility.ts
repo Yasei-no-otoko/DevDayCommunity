@@ -631,15 +631,7 @@ function paintFacility(ctx: CanvasRenderingContext2D) {
   text("↑", 536, 609, 20, "#a2bb8e");
   box(600, 589, 7, 19, "#82906f");
   box(602, 591, 3, 6, "#d6714e");
-  // Discreet room identities remain part of the drawing, not UI cards.
-  for (const r of ROOMS) {
-    box(r.x + 9, r.y + 9, 21, 14, "#192d26");
-    text(r.label, r.x + 13, r.y + 19, 8, "#aac09b");
-    text(r.name, r.x + 36, r.y + 20, r.id === "exit" ? 8 : 9, "#bed0b1");
-    if (r.id !== "exit") {
-      text(`SECTOR ${r.label} / B1`, r.x + 11, r.y + r.h - 10, 7, "#6b8c76");
-    }
-  }
+  // Room identities are HTML labels so their text stays readable at every FIT size.
   // Understated equipment callouts and scale reference.
   text("NO SIGNAL", 818, 372, 8, "#7f6954");
   line(
@@ -707,6 +699,26 @@ export function createFacility(
   parent: HTMLElement,
   onRoomSelect: (id: RoomId) => void,
 ) {
+  const labels = document.createElement("div");
+  labels.className = "facility-labels";
+  labels.setAttribute("aria-hidden", "true");
+  const roomNames: Record<RoomId, string> = {
+    reception: "受付", corridor: "中央ホール", ward: "隔離病棟",
+    archive: "書庫", laboratory: "研究室", generator: "非常用電源室", exit: "避難口",
+  };
+  const roomLabels = ROOMS.map((room) => {
+    const label = document.createElement("span");
+    label.className = "facility-room-label";
+    label.textContent = `${room.label} ${roomNames[room.id]}`;
+    label.style.left = `${(room.x + 6) / W * 100}%`;
+    label.style.top = `${(room.y + 7) / H * 100}%`;
+    labels.append(label);
+    return { room, label };
+  });
+  const agentLabel = document.createElement("span");
+  agentLabel.className = "facility-agent-label";
+  agentLabel.textContent = "ELIAS";
+  labels.append(agentLabel);
   let latestState: GameState | undefined;
   let selection: RoomId = "reception";
   const reducedMotion = window.matchMedia(
@@ -790,6 +802,8 @@ export function createFacility(
       this.playerPoint.y += (target.y - this.playerPoint.y) * smoothing;
       const { x, y } = this.playerPoint;
       this.agent.setPosition(x, y);
+      agentLabel.style.left = `${x / W * 100}%`;
+      agentLabel.style.top = `${y / H * 100}%`;
       const moving =
         Math.hypot(
           this.playerPoint.x - previous.x,
@@ -938,12 +952,42 @@ export function createFacility(
     audio: { noAudio: true },
     banner: false,
   });
+  parent.append(labels);
+  let resizeFrame = 0;
+  let destroyed = false;
+  function alignLabels() {
+    const { width, height } = game.scale.displaySize;
+    labels.style.width = `${width}px`;
+    labels.style.height = `${height}px`;
+    labels.style.left = `${(parent.clientWidth - width) / 2}px`;
+    labels.style.top = `${(parent.clientHeight - height) / 2}px`;
+  }
+  game.scale.on(Phaser.Scale.Events.RESIZE, alignLabels);
+  const resizeObserver = new ResizeObserver(() => {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      if (destroyed) return;
+      game.scale.getParentBounds();
+      game.scale.refresh();
+      alignLabels();
+    });
+  });
+  resizeObserver.observe(parent);
+  alignLabels();
   return {
     update(state: GameState, selectedRoom: RoomId) {
       latestState = state;
       selection = selectedRoom;
+      for (const { room, label } of roomLabels) {
+        label.classList.toggle("selected", room.id === selectedRoom);
+      }
     },
     destroy() {
+      destroyed = true;
+      resizeObserver.disconnect();
+      cancelAnimationFrame(resizeFrame);
+      game.scale.off(Phaser.Scale.Events.RESIZE, alignLabels);
+      labels.remove();
       game.destroy(true);
     },
   };
