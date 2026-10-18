@@ -5,7 +5,7 @@ import "../src/style.css";
 export const metadata: Metadata = {
   title: "BLACKSITE — The Escape Experiment",
   description:
-    "AIは脱出を目指す。あなたは、その場所に棲む存在。停電や囁きでELIASの脱出を阻む、180秒のホラー実験。",
+    "AIが操作するサム・アルトマンの脱出を妨害する180秒のホラー実験。追尾するぬこぬこさんと、使用間隔をリセットするTiboが登場。",
 };
 
 export const viewport: Viewport = { themeColor: "#090e0e" };

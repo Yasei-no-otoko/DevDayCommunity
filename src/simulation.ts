@@ -134,6 +134,30 @@ export interface Effect {
   roomId: RoomId;
   expiresAt: number;
 }
+export interface InterventionRecord {
+  id: number;
+  time: number;
+  type: SabotageType;
+  roomId: RoomId;
+  affectedSubject: boolean;
+  interruptedMove: boolean;
+  fearDelta: number;
+}
+export interface KillerState {
+  roomId: RoomId;
+  targetRoomId: RoomId | null;
+  progress: number;
+  encountered: boolean;
+  encounterCount: number;
+  lastEncounterAt: number | null;
+  moveElapsed: number;
+  moveDuration: number;
+}
+export interface TiboState {
+  appearances: number;
+  lastAppearanceAt: number | null;
+  nextAppearanceAt: number;
+}
 export interface GameState {
   status: "waiting" | "running" | "escaped" | "contained";
   paused: boolean;
@@ -152,15 +176,28 @@ export interface GameState {
   power: boolean;
   decisions: DecisionLog[];
   interventions: number;
+  /** Successful interventions, newest first, retained independently of effect expiry. */
+  interventionHistory: InterventionRecord[];
   effects: Effect[];
   locks: Partial<Record<RoomId, number>>;
   cooldowns: Record<SabotageType, number>;
   visited: RoomId[];
   clues: string[];
   outcome: string;
+  killer: KillerState;
+  tibo: TiboState;
+  randomSeed: number;
 }
-export function createState(): GameState {
-  return {
+function random(state: { randomSeed: number }): number {
+  let value = state.randomSeed;
+  value ^= value << 13;
+  value ^= value >>> 17;
+  value ^= value << 5;
+  state.randomSeed = value >>> 0;
+  return state.randomSeed / 0x100000000;
+}
+export function createState(seed = 0x53414d): GameState {
+  const state: GameState = {
     status: "waiting",
     paused: false,
     controller: "local",
@@ -178,13 +215,28 @@ export function createState(): GameState {
     power: false,
     decisions: [],
     interventions: 0,
+    interventionHistory: [],
     effects: [],
     locks: {},
     cooldowns: { blackout: 0, lock: 0, whisper: 0, apparition: 0 },
     visited: ["reception"],
     clues: [ROOMS[0].clue],
     outcome: "",
+    killer: {
+      roomId: "laboratory",
+      targetRoomId: null,
+      progress: 0,
+      encountered: false,
+      encounterCount: 0,
+      lastEncounterAt: null,
+      moveElapsed: 0,
+      moveDuration: 0,
+    },
+    tibo: { appearances: 0, lastAppearanceAt: null, nextAppearanceAt: 0 },
+    randomSeed: (seed >>> 0) || 0x9e3779b9,
   };
+  state.tibo.nextAppearanceAt = 18 + random(state) * 12;
+  return state;
 }
 function log(
   state: GameState,
@@ -220,6 +272,22 @@ function movementDuration(a: RoomId, b: RoomId): number {
     ) / 48
   );
 }
+function route(from: RoomId, goal: RoomId): RoomId[] {
+  const queue: RoomId[][] = [[from]];
+  const visited = new Set<RoomId>([from]);
+  while (queue.length) {
+    const path = queue.shift()!;
+    const current = path[path.length - 1];
+    if (current === goal) return path;
+    for (const room of ROOMS) {
+      if (!visited.has(room.id) && adjacent(current, room.id)) {
+        visited.add(room.id);
+        queue.push([...path, room.id]);
+      }
+    }
+  }
+  return [from];
+}
 /** Dijkstra favors safe routes, so a locked hall can lead to the laboratory detour. */
 function nextRoom(state: GameState, goal: RoomId): RoomId {
   const distances = new Map<RoomId, number>([[state.roomId, 0]]);
@@ -236,7 +304,10 @@ function nextRoom(state: GameState, goal: RoomId): RoomId {
       const weight =
         movementDuration(current, room.id) +
         (locked(state, room.id) ? 7 : 0) +
-        (affected(state, room.id) ? 9 : 0);
+        (affected(state, room.id) ? 9 : 0) +
+        // The subject cannot use the unseen pursuer's position before first contact.
+        (state.killer.encountered && room.id === state.killer.roomId ? 14 : 0) +
+        (state.killer.encountered && room.id === state.killer.targetRoomId ? 7 : 0);
       const candidate = (distances.get(current) ?? Infinity) + weight;
       if (candidate < (distances.get(room.id) ?? Infinity)) {
         distances.set(room.id, candidate);
@@ -250,7 +321,10 @@ function nextRoom(state: GameState, goal: RoomId): RoomId {
   return step;
 }
 export function chooseLocalAction(state: GameState): Decision {
-  if (state.fear >= 53)
+  const canRetreat = state.killer.encountered && state.killer.roomId === state.roomId &&
+    !locked(state, state.roomId) &&
+    ROOMS.some((room) => adjacent(state.roomId, room.id) && !locked(state, room.id));
+  if (state.fear >= 53 && !canRetreat)
     return {
       action: "wait",
       target: state.roomId,
@@ -262,6 +336,18 @@ export function chooseLocalAction(state: GameState): Decision {
       target: state.roomId,
       reason: "扉を封鎖された。ここのロックを解除しよう。",
     };
+  if (canRetreat) {
+    const goal = !state.keycard ? "archive" : !state.power ? "generator" : "exit";
+    const retreat = ROOMS.filter((room) => adjacent(state.roomId, room.id) && !locked(state, room.id))
+      .sort((a, b) =>
+        Number(a.id === state.killer.targetRoomId) - Number(b.id === state.killer.targetRoomId) ||
+        route(a.id, goal).length - route(b.id, goal).length,
+      )[0];
+    if (retreat) return {
+      action: "move", target: retreat.id,
+      reason: "ぬこぬこさんが近い。距離を取り、脱出の準備を続けよう。",
+    };
+  }
   if (!state.keycard && state.roomId === "archive")
     return {
       action: "search",
@@ -448,6 +534,7 @@ export function sabotage(
   if (
     state.status !== "running" ||
     state.paused ||
+    state.thinking ||
     !Object.hasOwn(SABOTAGE, type) ||
     !ROOMS.some((r) => r.id === targetRoom)
   )
@@ -457,6 +544,11 @@ export function sabotage(
     return false;
   const affectsSubject =
     targetRoom === state.roomId || targetRoom === state.targetRoomId;
+  const interruptedMove =
+    type === "lock" &&
+    state.currentAction?.action === "move" &&
+    state.targetRoomId === targetRoom;
+  const fearBefore = state.fear;
   state.energy -= rule.cost;
   state.cooldowns[type] = state.elapsed + rule.cooldown;
   state.interventions += 1;
@@ -471,10 +563,7 @@ export function sabotage(
   });
   if (type === "lock") {
     state.locks[targetRoom] = state.elapsed + rule.duration;
-    if (
-      state.currentAction?.action === "move" &&
-      state.targetRoomId === targetRoom
-    ) {
+    if (interruptedMove) {
       state.currentAction = null;
       state.targetRoomId = null;
       state.progress = 0;
@@ -482,6 +571,16 @@ export function sabotage(
   }
   if (affectsSubject)
     state.fear = Math.min(99, state.fear + rule.fear);
+  state.interventionHistory.unshift({
+    id: state.interventions,
+    time: state.elapsed,
+    type,
+    roomId: targetRoom,
+    affectedSubject: affectsSubject,
+    interruptedMove,
+    fearDelta: state.fear - fearBefore,
+  });
+  state.interventionHistory.length = Math.min(state.interventionHistory.length, 12);
   log(
     state,
     {
@@ -493,19 +592,69 @@ export function sabotage(
   );
   return true;
 }
+function encounter(state: GameState): void {
+  const killer = state.killer;
+  if (killer.roomId !== state.roomId ||
+      (killer.lastEncounterAt !== null && state.elapsed < killer.lastEncounterAt + 12 - 1e-8)) return;
+  const firstContact = !killer.encountered;
+  killer.encountered = true;
+  killer.encounterCount += 1;
+  killer.lastEncounterAt = state.elapsed;
+  state.fear = Math.min(99, state.fear + 5);
+  if (firstContact && state.currentAction && state.currentAction.action !== "move") {
+    state.currentAction = null;
+    state.targetRoomId = null;
+    state.progress = 0;
+  }
+}
+function worldEvents(state: GameState): void {
+  if (state.elapsed >= state.tibo.nextAppearanceAt - 1e-8) {
+    state.tibo.appearances += 1;
+    state.tibo.lastAppearanceAt = state.elapsed;
+    state.tibo.nextAppearanceAt = state.elapsed + 24 + random(state) * 18;
+    for (const type of Object.keys(SABOTAGE) as SabotageType[]) state.cooldowns[type] = 0;
+  }
+  encounter(state);
+}
+function beginPursuit(state: GameState): void {
+  const killer = state.killer;
+  if (killer.targetRoomId || killer.roomId === state.roomId) return;
+  killer.targetRoomId = route(killer.roomId, state.roomId)[1] ?? null;
+  if (killer.targetRoomId) {
+    killer.moveElapsed = 0;
+    killer.progress = 0;
+    killer.moveDuration = movementDuration(killer.roomId, killer.targetRoomId) * 1.8 + 1;
+  }
+}
+function advancePursuit(state: GameState, step: number): void {
+  const killer = state.killer;
+  if (!killer.targetRoomId) return;
+  killer.moveElapsed += step;
+  killer.progress = Math.min(1, killer.moveElapsed / killer.moveDuration);
+  if (killer.moveDuration - killer.moveElapsed <= 1e-8) {
+    killer.roomId = killer.targetRoomId;
+    killer.targetRoomId = null;
+    killer.moveElapsed = 0;
+    killer.moveDuration = 0;
+    killer.progress = 0;
+  }
+}
 /** Split at rule boundaries so frame size cannot discard action time or effect duration. */
 export function tick(state: GameState, dt: number): void {
   if (
     state.status !== "running" ||
     state.paused ||
+    state.thinking ||
     !Number.isFinite(dt) ||
     dt <= 0
   )
     return;
   let remaining = Math.min(dt, 360);
   while (remaining > 0.000001 && state.status === "running") {
+    worldEvents(state);
     if (!state.currentAction && state.controller === "local" && !state.thinking)
       applyDecision(state, chooseLocalAction(state));
+    beginPursuit(state);
     const dark = affected(state, state.roomId, "blackout");
     const haunted = affected(state, state.roomId, "apparition");
     const whispers = affected(state, state.roomId, "whisper");
@@ -538,6 +687,13 @@ export function tick(state: GameState, dt: number): void {
       0.1,
       state.timeRemaining,
       nextExpiry,
+      state.tibo.nextAppearanceAt - state.elapsed,
+      state.killer.targetRoomId
+        ? state.killer.moveDuration - state.killer.moveElapsed
+        : Infinity,
+      state.killer.roomId === state.roomId && state.killer.lastEncounterAt !== null
+        ? state.killer.lastEncounterAt + 12 - state.elapsed
+        : Infinity,
       state.currentAction
         ? (state.currentAction.duration - state.currentAction.elapsed) / speed
         : Infinity,
@@ -553,6 +709,7 @@ export function tick(state: GameState, dt: number): void {
       if ((state.locks[room.id] ?? Infinity) <= state.elapsed + 1e-8)
         delete state.locks[room.id];
     state.fear = Math.max(0, Math.min(100, state.fear + step * fearRate));
+    advancePursuit(state, step);
     if (state.fear >= 100 - 1e-8 || state.timeRemaining <= 0) {
       if (state.fear >= 100 - 1e-8) state.fear = 100;
       state.status = "contained";
@@ -575,5 +732,6 @@ export function tick(state: GameState, dt: number): void {
       if (state.currentAction.duration - state.currentAction.elapsed <= 1e-8)
         finishAction(state);
     }
+    if (state.status === "running") worldEvents(state);
   }
 }
