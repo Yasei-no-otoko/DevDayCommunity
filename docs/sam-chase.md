@@ -46,6 +46,44 @@
 5. **Sam map**: use the generated Sam full body as the outfit and identity reference; compact 2D game sprite viewed from a high overhead angle of about 65 degrees, walking diagonally down-right, visible crown and shoulders with foreshortened body, readable silhouette at small size, complete body on a square transparent canvas, no text or ground plane.
 6. **ぬこぬこさん map**: use the provided catgirl image as the identity reference; retain brown hair, golden eyes, cat ears, tail and black-gold outfit, compact chase pose viewed from the same high overhead angle, facing diagonally down-left, complete body on a square transparent canvas, no text or ground plane.
 
+## オープニング映像の先頭フレーム
+
+2026-10-18の依頼「知らない廃病院の受付で目覚めるサム・アルトマン」を、写実的なホラー映像の最初のカットとしてbuilt-in `image_gen`で生成しました。待合椅子に身体を預けたサム、無人の受付カウンター、暗い廊下を一画面に収め、続く動画で顔を上げて周囲を見回せる構図です。同日の追加依頼で、意図せず連れ去られた状況が分かるよう、片目にかかるずれた黒い布の目隠しと、膝上でまとめられた手首の縄を同じツールで加えました。主人公の外見と受付の構図・照明を保っています。施設と主人公の設定は[BLACKSITE 開発ノート](https://chatgpt.com/space/page_6ad364e1b6988191bc1b900799453a36)を参照しました。
+
+動画制作の入力として、編集出力のPNGを無加工で[public/blacksite-opening-frame.png](../public/blacksite-opening-frame.png)に保存しています。1672×941px（約16:9）、1,986,383 bytes、背景不透過です。目視・PNGのデコード・編集出力とのSHA-256一致を確認しました。初回の画像とプロンプトはGit履歴の `5a0c7c0` に残しています。
+
+検証: 既存55テストと差分の空白チェックが成功しました。追跡中のソースと今回の2ファイルを取り出した環境でWorkerビルドが成功し、配信物のPNGも元データと一致しました。通常の作業ディレクトリでのビルドは、Git管理外の別プロジェクト `blacksite2/vite.config.ts` が親のTypeScript対象に含まれるため失敗します。
+
+初回生成に使用したプロンプト全文:
+
+```text
+Use case: photorealistic-natural
+Asset type: BLACKSITE horror-game opening video, first frame, a single full-bleed cinematic still in wide 16:9 landscape.
+Primary request: 知らない廃病院の受付で目覚めるサム・アルトマン — Sam Altman waking up at the reception of an unfamiliar abandoned hospital.
+Scene/backdrop: The long-abandoned reception waiting area of ST. ORISON INSTITUTE. A clearly recognizable reception counter and unstaffed service window, worn waiting chairs, peeling walls, aged tile floor, a dark corridor receding beyond the counter. Restrained realistic decay, no fantastical architecture.
+Subject: Sam Altman, naturally recognizable facial likeness, short brown hair, clean-shaven, wearing a simple dark navy jacket over a navy crewneck and dark trousers. He is alone, slumped in an old hospital waiting chair near the counter, shoulders slightly rounded and head only beginning to lift. His eyelids have just opened; his face shows sleepiness and quiet disorientation, as if he has no idea how he arrived here. His face must be clearly visible in a three-quarter frontal view. Natural hands resting on chair armrest and lap, natural anatomy.
+Style/medium: Photorealistic cinematic psychological-horror film still, grounded live-action cinematography, detailed natural skin and worn fabric textures, subtle 35mm film grain.
+Composition/framing: Medium-wide 35mm shot from seated eye level, slightly three-quarter frontal. Sam is the immediate focal point while the reception counter and empty hospital environment remain unmistakably visible in the same composition. Leave comfortable space above his head and into the room so a subsequent video can begin with a slow head lift, glance around, and subtle camera push-in. A single quiet opening moment rather than a completed frightened reaction.
+Lighting/mood: Faint cold window light reveals his eyes and face; weak sickly green fluorescent light in the reception mixes with the blue-gray shadows. Dark but readable midtones, pale desaturated colors, oppressive stillness, restrained dread, realistic motivated lighting.
+Constraints: One adult subject only. No killer, ghosts, extra people, blood, wounds, restraints, weapons, or gore. No invented narrative props. No text, legible signs, subtitles, titles, logos, UI, timestamp, watermark, borders, or letterboxing. No collage, no multiple panels. Landscape 16:9, full image composition, realistic human likeness and anatomy.
+```
+
+
+編集に使用したプロンプト全文（入力: 初回の生成画像）:
+
+```text
+Use case: precise-object-edit
+Asset type: BLACKSITE fictional horror-game opening video, first frame.
+Input image 1: EDIT TARGET — the existing cinematic still of Sam Altman waking in an abandoned hospital reception. Use this exact image as the base.
+Primary request: Add clear visual props showing that Sam was brought here against his will and is only now waking up.
+Change only these local details:
+1. Add a plain, visibly wrinkled black cloth blindfold across his eyes, displaced diagonally so it still covers one eye while the other eye is partly exposed. It should unmistakably read as a recently shifted blindfold, not a scarf, headband, medical eye patch, or neckwear. Keep his exposed eye, nose, mouth, facial proportions and hair naturally recognizable as the same Sam Altman.
+2. Bring both of his existing hands together naturally over his lap, with both wrists loosely bound together in front by a small amount of plain cord. The binding is visible at a glance but understated, with no knot-making detail, no pressure marks or injury. Preserve two anatomically correct hands with natural fingers and the original dark clothing.
+His slumped waking posture and the confused expression of the exposed part of his face must remain. These props should communicate involuntary abduction in a fictional psychological horror story, not a posed fashion scene.
+Invariants: Preserve the same person and recognizable identity, same jacket and trousers, same body scale, same waiting chair and reception counter, same dark corridor, decayed hospital surfaces, camera angle, framing, original image dimensions and landscape aspect ratio, film grain, cold window light, green fluorescent atmosphere, and photorealistic cinematic style. Keep the background and every other object unchanged. Match the added cloth and cord to the existing perspective, shadows, and lighting.
+Constraints: One adult person only. No added captor or monster. No gag, no neck restraints, no weapons, blood, bruises, wounds, gore, or graphic violence. No extra limbs or fingers, no text, signs, subtitles, UI, logos, timestamps, watermark, border or black bars. Do not redesign the scene.
+```
+
 ## SDK参照
 
 Phaserのバージョン指定なしの最新資料は4.1.0ですが、本プロジェクトは3.90.0を維持します。[Image](https://docs.phaser.io/api-documentation/3.90.0/class/gameobjects-image)と[LoaderPlugin](https://docs.phaser.io/api-documentation/3.90.0/class/loader-loaderplugin)の版別資料でpreload→create、textureの確認、静止画の表示を確認しました。画像が読み込めない場合は既存の図形表示を使います。部屋選択のzoneとNPC画像は分離し、NPC自体は入力を奪いません。
