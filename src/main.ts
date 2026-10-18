@@ -1,4 +1,5 @@
 import { legalDecisions, createSessionRequest, createDecisionRequest, roomName } from "./live-contract";
+import { createCinematics } from "./cinematics";
 import { createGameAudio } from "./audio";
 import { createFacility } from "./facility";
 import {
@@ -107,7 +108,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   const dialogs = Array.from(root.querySelectorAll<HTMLDialogElement>("dialog"));
   const dialogOpeners = new WeakMap<HTMLDialogElement, HTMLElement>();
   function openDialog(dialog: HTMLDialogElement, opener?: HTMLElement) {
-    if (disposed || dialog.open) return;
+    if (disposed || cinematics.active || dialog.open) return;
     tiboWasVisible = false;
     if (state.status === "running") state.paused = true;
     for (const other of dialogs) if (other.open) other.close();
@@ -138,6 +139,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let plan = "";
   let lastLogKey = "";
   const gameAudio = createGameAudio({ onError: (message) => toast(message) });
+  const cinematics = createCinematics(root, () => { if (!disposed) syncAudio(); });
   let soundOn = false;
   let soundLoading = false;
   let soundRevision = 0;
@@ -177,7 +179,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   }
   function watchbackActive() { return watchback?.phase === "active"; }
   function presentationReady() {
-    return state.status === "running" && !state.paused && !state.thinking && !apiPending && !document.hidden && !dialogs.some((dialog) => dialog.open);
+    return !cinematics.active && state.status === "running" && !state.paused && !state.thinking && !apiPending && !document.hidden && !dialogs.some((dialog) => dialog.open);
   }
   function renderWatchback() {
     const active = watchbackActive();
@@ -375,6 +377,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   async function nextLiveDecision() {
     if (
       apiPending ||
+      cinematics.active ||
       watchbackActive() ||
       document.hidden ||
       dialogs.some((dialog) => dialog.open) ||
@@ -427,6 +430,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     }
   }
   function startPause() {
+    if (cinematics.active) return;
     if (($("mode") as HTMLSelectElement).value === "api" && authenticated === false && (state.status === "waiting" || state.paused)) {
       toast("実APIにはサインインが必要です。接続状態の案内から進んでください。");
       render();
@@ -437,12 +441,20 @@ export function mountBlacksite(root: HTMLElement): () => void {
       return;
     }
     if (state.status === "waiting") {
-      if (($("mode") as HTMLSelectElement).value === "api") {
-        void startLive();
-        return;
-      }
-      state.status = "running";
-      state.controller = "local";
+      const live = ($("mode") as HTMLSelectElement).value === "api";
+      if (live && !liveConfigured) { void startLive(); return; }
+      const gen = generation;
+      for (const dialog of dialogs) if (dialog.open) dialog.close();
+      void cinematics.play("/video/op.mp4", "オープニング", !soundOn, true).then((advance) => {
+        if (!advance || disposed || generation !== gen) return;
+        if (live) void startLive();
+        else {
+          state.status = "running";
+          state.controller = "local";
+          render();
+        }
+      });
+      return;
     } else {
       state.paused = !state.paused;
       apiError = "";
@@ -458,6 +470,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     render();
   }
   function reset() {
+    cinematics.cancel();
     soundRevision++;
     gameAudio.reset();
     soundLoading = false;
@@ -501,6 +514,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (soundOn) void setAudioEnabled(true);
   }
   function interferenceBlock(type: SabotageType): string {
+    if (cinematics.active) return "映像の再生中 · 時間は停止中";
     if (state.status !== "running") return state.status === "waiting" ? "実験を開始してください" : "実験は終了しました";
     if (state.paused) return "一時停止中 · 再開すると使えます";
     if (watchbackActive()) return "映像の受信中 · 時間は停止中";
@@ -743,7 +757,11 @@ export function mountBlacksite(root: HTMLElement): () => void {
         const heading = caughtAtFearLimit ? "サムが捕獲された" : won ? "あなたの勝利" : "サム・アルトマンが脱出";
         const verdict = caughtAtFearLimit ? "恐怖100 · 封じ込め成功" : won ? "封じ込め成功" : "あなたの敗北";
         $("result").innerHTML = `<span class="eyebrow">${caughtAtFearLimit ? "SUBJECT FAILURE · FEAR LIMIT + CONTACT" : "EXPERIMENT COMPLETE"}</span><h2 id="result-title">${heading}</h2><strong class="result-verdict">${verdict}</strong><p>${reason}</p><dl class="result-stats"><div><dt>経過時間</dt><dd>${formatTime(Math.ceil(state.elapsed))}</dd></div><div><dt>干渉</dt><dd>${state.interventions}回</dd></div><div><dt>最終恐怖</dt><dd>${Math.round(state.fear)}/100</dd></div><div><dt>サム・アルトマンの確保物</dt><dd>鍵 ${state.keycard ? "取得済" : "未取得"} ／ 電源 ${state.power ? "復旧済" : "未復旧"}</dd></div></dl><p class="result-tip">${won ? "施設は、また静けさを取り戻した。次は別の干渉を試してみよう。" : "次は移動先を封鎖して時間を稼ごう。サム・アルトマンがいる部屋への囁きも有効。"}</p><button class="start-button" id="result-retry">もう一度挑戦 ${svg("arrow", 16)}</button>`;
-        openDialog($<HTMLDialogElement>("result-dialog"), $("open-result"));
+        const gen = generation;
+        for (const dialog of dialogs) if (dialog.open) dialog.close();
+        void cinematics.play(won ? "/video/contained.mp4" : "/video/escaped.mp4", won ? "封じ込め成功" : "脱出エンディング", !soundOn).then((advance) => {
+          if (advance && !disposed && generation === gen) openDialog($<HTMLDialogElement>("result-dialog"), $("open-result"));
+        });
       }
     }
     facility.update(state, selectedRoom);
@@ -794,6 +812,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   });
   listen(document, "fullscreenchange", renderFullscreen);
   listen(document, "keydown", (event) => {
+    if (cinematics.active) return;
     if (event.key === "Escape" && watchbackActive() && !dialogs.some((dialog) => dialog.open)) {
       event.preventDefault();
       closeWatchback();
@@ -843,11 +862,11 @@ export function mountBlacksite(root: HTMLElement): () => void {
     const statusBeforeTick = state.status;
     const hadContact = state.killer.encountered;
     advanceWatchback(dt);
-    const tiboVisible = tiboRemaining > 0 && !watchbackActive() && !document.hidden && !dialogs.some((dialog) => dialog.open);
+    const tiboVisible = !cinematics.active && tiboRemaining > 0 && !watchbackActive() && !document.hidden && !dialogs.some((dialog) => dialog.open);
     // Count only displayed frames, so a camera cue or modal cannot consume the notice.
     if (tiboVisible && tiboWasVisible) tiboRemaining = Math.max(0, tiboRemaining - dt);
     tiboWasVisible = tiboVisible;
-    if (!watchbackActive() && !state.thinking && !document.hidden && !dialogs.some((dialog) => dialog.open)) {
+    if (!cinematics.active && !watchbackActive() && !state.thinking && !document.hidden && !dialogs.some((dialog) => dialog.open)) {
       if (pendingDecision && !state.paused && state.status === "running") {
         const decision = pendingDecision;
         pendingDecision = null;
@@ -884,6 +903,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (disposed) return;
     disposed = true;
     soundRevision++;
+    cinematics.dispose();
     gameAudio.dispose();
     generation++;
     cancelAnimationFrame(frameId);

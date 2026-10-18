@@ -66,3 +66,5 @@ Fullscreenボタンのクリック処理から`root.requestFullscreen()`を呼�
 - 参照: [Game UI Database: Resident Evil Village](https://www.gameuidatabase.com/gameData.php?id=780)、[Capcom公式マニュアルのタイトル画面](https://game.capcom.com/manual/village/locale/ja/ps4/page/11_1_1.jpg)、[所持品画面](https://game.capcom.com/manual/village/locale/ja/page/41_2_1.jpg)。
 - 施設背景は生成時に一度だけピクセルの彩度を調整します。[Canvas filter](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/filter)はブラウザー互換性に制限があるため使わず、毎フレームの画像処理も避けます。動く人物・選択表示は別に描画します。
 - 1280×720の実ブラウザーでページ寸法も1280×720、ヘッダーと3列の主要パネルが画面内に収まることを確認しました。
+
+動画追加後も1920×1080の同一origin QAフレームと1280×720の実ブラウザーで主要11要素のviewport外・祖先によるclipは0件でした。OPは実クリックからブラウザーFullscreenへ入り、自然終了後にゲームへ復帰することを確認しました。

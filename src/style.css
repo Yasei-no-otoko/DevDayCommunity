@@ -1881,3 +1881,31 @@ dialog .start-button {
     animation:none!important;
   }
 }
+
+/* Cutscenes fill the visible viewport without cropping the source frame. */
+.cinematic {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.cinematic-video { width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.cinematic-controls {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: max(20px, env(safe-area-inset-left));
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cinematic-controls button { padding: 10px 16px; background: #151515; color: #fff; border: 1px solid #777; cursor: pointer; }
+.cinematic-controls button:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.cinematic-status { background: #000c; font-size: 13px; }
