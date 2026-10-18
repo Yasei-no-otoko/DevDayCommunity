@@ -58,3 +58,17 @@ Safari integration testing also observed an Agents-generated Japanese escape pla
 The official [`openai/openai-node` releases](https://github.com/openai/openai-node/releases) list `v7.38.0` (released 2026-10-17) as the latest JavaScript SDK release checked for this note. The Decisions guide requires JavaScript SDK `7.30.0` or later for its SDK examples. The supported package is `openai`; the Agents API quickstart uses `client.beta.agents.sessions...`, while Decisions uses `client.decisions.create(...)`. `@openai/agents` is a separate Agents SDK and is not the package shown by these API examples.
 
 This project does not currently install the `openai` SDK: `package.json` has no `openai` dependency. Its server-side adapter uses Node.js 24 built-in `fetch` against the Agents and Decisions REST endpoints. No SDK upgrade is needed for the current adapter. Comparing the current official Agents quickstart/events and Decisions guides with the contracts recorded above found no API contract differences for this implementation: endpoint paths, required request fields, allowed Decisions question/answer shapes, and the root-turn completion event remain as documented. The official guides remain the authority if beta behavior changes.
+
+## Production Site live verification on 2026-10-18
+
+At 13:38–13:40 JST, the published [BLACKSITE Site](https://blacksite-escape-experiment.yasei-no-otoko.chatgpt.site/) was exercised in Vivaldi with an existing authenticated visitor session. The tested deployment was version 2, source commit `bf582cacfdbb1289b3082190fe097e62fe7bf190`. The browser selected OpenAI live mode and used the deployed same-origin API routes. No provider responses, choices, or animation frames were mocked in this run; the normal `requestAnimationFrame` loop advanced the game once the browser window was brought to the foreground.
+
+| Operation | Observed result |
+| --- | --- |
+| Runtime readiness | `/api/status` returned 200; the authenticated UI offered live API play. |
+| Agents strategy | `/api/session` returned 201 in 9,309 ms. A Japanese escape plan was displayed; model `gpt-6-astra`, request `req_72a48b89b7b04406be5e24d4129b274c`. |
+| Decisions actions | The completed first experiment made nine `/api/decision` requests, all returning 200, with browser-observed durations of 218–2,623 ms. Model `gpt-6-luna`; final request `req_a1fc55fd438145a3b4c715ab1b4b0430`, confidence 0.93. No decision object ID was returned, which remains valid. |
+| Gameplay integration | ELIAS recovered the keycard, restored power, and unlocked the evacuation door. The result showed escape after 00:55 of simulation time, one player interference, and final fear 16/100. The player lock action spent energy and increased fear. |
+| Pause during inference | A real Decisions response arriving during a pause was held as “次の行動を受信済み · 再開待ち” at 02:15 remaining. Resuming applied the received move toward the exit. |
+
+The browser's Resource Timing entries established the HTTP results; the game's API details and activity log supplied the request IDs, returned confidence, plan, and applied actions. API errors were empty and the controller stayed in live mode. The source adapter separately requires a successful root Agents turn and validates the named Decisions choice before applying it. No application fix was needed for this verification. These are point-in-time production results, not an availability guarantee or a smartphone-device test. Credentials and session capability tokens are deliberately excluded from this record.
