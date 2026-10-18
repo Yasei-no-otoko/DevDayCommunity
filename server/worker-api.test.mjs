@@ -30,6 +30,20 @@ async function invoke(handler, { path = "/api/status", method = "GET", user = "u
 async function createSession(handler, options = {}) {
   return invoke(handler, { method: "POST", path: "/api/session", body: { facilityDescription: "A sealed facility", strategicPlan: "Find the exit" }, ...options });
 }
+
+test("public release identity comes from the build and requires a full source commit", async () => {
+  const release = { projectId: "appgprj_test", commitSha: "a".repeat(40) };
+  const { handler, calls } = fixture({ release });
+  const result = await invoke(handler, { path: "/api/release", user: null });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.json, release);
+  assert.match(result.response.headers.get("cache-control"), /no-store/);
+  assert.equal(calls.length, 0);
+  const absent = await invoke(fixture().handler, { path: "/api/release", user: null });
+  assert.equal(absent.status, 503);
+  const invalid = await invoke(fixture({ release: { ...release, commitSha: "unknown" } }).handler, { path: "/api/release", user: null });
+  assert.equal(invalid.status, 503);
+});
 function decide(handler, session, options = {}) {
   return invoke(handler, { method: "POST", path: "/api/decision", body: { sessionId: session.sessionId, sessionToken: session.sessionToken, snapshot: { room: "entrance" }, allowedDecisions: [action] }, ...options });
 }

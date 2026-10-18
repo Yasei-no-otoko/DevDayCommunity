@@ -24,12 +24,12 @@ lock.mp3
 - License: CC0 1.0 Universal.
 - Edit: door close and latch are mixed together, with latch delayed 450 ms; 180 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
 
-whisper.mp3
-- Source: qubodup-GhostMoans/mp3/qubodup-GhostMoan05.mp3 from "Ghost Monster Voice Moaning & Growling" by qubodup.
-- Source page: https://opengameart.org/content/ghost-monster-voice-moaning-growling
-- Direct source archive: https://opengameart.org/sites/default/files/qubodup-GhostMoans.zip
+whisper-ghost.mp3
+- Source: 01-anime gasp.wav from "Free Voice Clips Pack - Bright Female" by cicifyre.
+- Source page: https://opengameart.org/content/voice-clip-packs-for-visual-novels-and-rpgs
+- Direct source archive: https://opengameart.org/sites/default/files/Free%20Voice%20Clips%20Pack%20-%20Bright%20Female_0.zip
 - License: CC0 1.0 Universal.
-- Edit: shortest source utterance (1.776 seconds) retained; high-pass at 200 Hz, low-pass at 2.2 kHz, reduced 9 dB, 80 ms fade-in and 220 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
+- Edit: the nonverbal female gasp is repitched upward by 1 semitone and time-stretched back to its original pace, high-pass filtered at 190 Hz, +1.5 dB at 3.2 kHz, and low-pass filtered at 7.6 kHz. The close voice is joined by a quiet reversed-reverb lead about 230 ms ahead and a 20-cent detuned shadow delayed 40 ms; soft reflections at 150/300/450/600 ms form the trailing ghost ambience. A 20 ms fade-in and 320 ms final fade keep the onset and tail smooth. FFmpeg loudness target -22 LUFS / -3.5 dBTP; final MP3 measures -23.9 LUFS / -4.0 dBTP after encoding; mono 44.1 kHz MP3 at 96 kbps, 1.727 seconds. This is an edited feminine voice performance; the actor's age is unknown, and the voice is not synthetic.
 
 apparition.mp3
 - Source: ghost.wav from "Ghost" by Ogrebane.

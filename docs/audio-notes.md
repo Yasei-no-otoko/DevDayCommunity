@@ -18,7 +18,7 @@
 - [Kenney: RPG Audio](https://kenney.nl/assets/rpg-audio) — 扉、金属、足音、小物の効果音。公式ページと配布パックの License.txt で CC0 を確認。
 - [congusbongus: Abandoned passages](https://opengameart.org/content/abandoned-passages-horror-ambience-loop) — 狭く暗い施設に合う環境音のループ。配布ページで CC0 を確認。
 - [Ogrebane: Ghost](https://opengameart.org/content/ghost) — 怪異の出現音。配布ページで CC0 を確認。
-- [qubodup: Ghost Monster Voice Moaning & Growling](https://opengameart.org/content/ghost-monster-voice-moaning-growling) — 囁きの声素材。配布ページで CC0 を確認。
+- [cicifyre: Voice Clip Packs for Visual Novels and RPGs](https://opengameart.org/content/voice-clip-packs-for-visual-novels-and-rpgs) — CC0 の Bright Female パックから非言語の女性 gasp を使用。約1半音上げて元の速度に戻し、190 Hz のハイパス、3.2 kHz を1.5 dB強調、7.6 kHz のローパスで整えた。約230 ms 前から聞こえる弱い逆再生リバーブと約20セントずらした影の声を重ね、150/300/450/600 ms に小さく減衰する反射を置いた。話者の年齢は不明で、特定人物の模倣や合成音声ではない。
 
 ゲームの音量は環境音・足音を控えめにし、干渉・Tiboの登場・目標達成を短い効果音で知らせる。音はシミュレーションの外で制御し、判定・乱数・API 入出力に影響させない。
 
@@ -35,5 +35,7 @@
 実API・公開サイトの再検証は今回の音追加の検証範囲に含めない。
 
 ## 最新ゲームルールとの統合
+
+囁きは女性声に逆向きの残響と声の重なりを加えた `whisper-ghost.mp3` に更新した。以前の音声がブラウザーにキャッシュされていても新しい素材を取得できるよう、配信パスも変更した。
 
 2026-10-18、GitHub main の扉封鎖・接触捕獲の変更と音声追加を統合。ぬこぬこさんとの接触は即時終了となり、結果ダイアログでは音を停止する。上記の遭遇音の検証は統合前の音声モジュールの記録であり、現在の通常プレイで捕獲時の効果音を鳴らす仕様ではない。

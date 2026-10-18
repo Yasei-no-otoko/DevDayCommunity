@@ -15,6 +15,8 @@ The rules require a web-published deliverable and allow ChatGPT Sites, Cloudflar
 
 ## Ninety-second demo path
 
+**Required before presenting:** complete the [live API acceptance gate](live-demo-check.md) against the deployed commit. Both `npm run test:live` and `npm run demo:ready` must succeed, and the published browser's live mode must be exercised. Local simulation, mock tests, configured status alone, and historical API receipts do not satisfy this requirement. A failed or skipped live check leaves the demo unaccepted.
+
 Keep the demo to one short escape attempt and explain what the two APIs do while they run:
 
 - **0:00–0:10 — Set the scene.** “You are the haunting; Sam Altman is the AI escape agent.” Point to Sam and Nuko's overhead sprites, the four interference buttons, and keycard → power → exit objectives. The player wins when Nuko catches Sam in the same room, at fear 100, or after 180 simulation seconds of containment.
