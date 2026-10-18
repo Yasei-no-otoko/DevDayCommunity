@@ -678,14 +678,15 @@ function encounter(state: GameState): void {
   killer.encountered = true;
   killer.encounterCount += 1;
   killer.lastEncounterAt = state.elapsed;
-  state.fear = Math.max(state.fear, Math.min(99, state.fear + 5));
+  const fearIncrease = firstContact ? 25 + Math.floor(random(state) * 11) : 5;
+  state.fear = Math.max(state.fear, Math.min(99, state.fear + fearIncrease));
   state.outcome = "ぬこぬこさんがサムに接触。恐怖100に達すると実験終了。";
   log(state, {
     action: "wait",
     target: state.roomId,
     reason: firstContact
-      ? "ぬこぬこさんがサムに接触。捕獲状態を記録、恐怖100まで実験続行。"
-      : "ぬこぬこさんがサムに再接触。恐怖が高まった。",
+      ? `ぬこぬこさんがサムに接触。恐怖+${fearIncrease}、捕獲状態を記録。恐怖100まで実験続行。`
+      : `ぬこぬこさんがサムに再接触。恐怖+${fearIncrease}。`,
   }, "system");
 }
 function worldEvents(state: GameState): void {
