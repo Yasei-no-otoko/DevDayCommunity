@@ -1,0 +1,79 @@
+BLACKSITE audio credits and edits
+=================================
+
+All files in this directory are edited MP3 exports of the CC0 originals listed below. The full source archive license for Kenney RPG Audio is reproduced at the end. CC0 legal text: https://creativecommons.org/publicdomain/zero/1.0/
+
+ambience.mp3
+- Source: freezer.ogg from "Abandoned passages (horror ambience loop)" by congusbongus.
+- Source page: https://opengameart.org/content/abandoned-passages-horror-ambience-loop
+- Direct source: https://opengameart.org/sites/default/files/freezer_0.ogg
+- License: CC0 1.0 Universal.
+- Edit: full 31.318-second seamless source loop retained; mono 44.1 kHz MP3 at 96 kbps; loudness normalized to -22 LUFS / -3 dBTP.
+
+blackout.mp3
+- Source: Audio/metalClick.ogg from Kenney RPG Audio by Kenney Vleugels (Kenney.nl).
+- Source page: https://kenney.nl/assets/rpg-audio
+- Official source archive: https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip
+- License: CC0 1.0 Universal.
+- Edit: 15 ms fade-in and 120 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
+
+lock.mp3
+- Sources: Audio/doorClose_1.ogg and Audio/metalLatch.ogg from Kenney RPG Audio by Kenney Vleugels (Kenney.nl).
+- Source page: https://kenney.nl/assets/rpg-audio
+- Official source archive: https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip
+- License: CC0 1.0 Universal.
+- Edit: door close and latch are mixed together, with latch delayed 450 ms; 180 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
+
+whisper.mp3
+- Source: qubodup-GhostMoans/mp3/qubodup-GhostMoan05.mp3 from "Ghost Monster Voice Moaning & Growling" by qubodup.
+- Source page: https://opengameart.org/content/ghost-monster-voice-moaning-growling
+- Direct source archive: https://opengameart.org/sites/default/files/qubodup-GhostMoans.zip
+- License: CC0 1.0 Universal.
+- Edit: shortest source utterance (1.776 seconds) retained; high-pass at 200 Hz, low-pass at 2.2 kHz, reduced 9 dB, 80 ms fade-in and 220 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
+
+apparition.mp3
+- Source: ghost.wav from "Ghost" by Ogrebane.
+- Source page: https://opengameart.org/content/ghost
+- Direct source: https://opengameart.org/sites/default/files/ghost.wav
+- License: CC0 1.0 Universal.
+- Edit: full 3.250-second source retained; 100 ms fade-in and 400 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
+
+footstep.mp3
+- Source: Audio/footstep00.ogg from Kenney RPG Audio by Kenney Vleugels (Kenney.nl).
+- Source page: https://kenney.nl/assets/rpg-audio
+- Official source archive: https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip
+- License: CC0 1.0 Universal.
+- Edit: full 249 ms source retained; 10 ms fade-in and 100 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
+
+support.mp3
+- Source: Audio/bookOpen.ogg from Kenney RPG Audio by Kenney Vleugels (Kenney.nl).
+- Source page: https://kenney.nl/assets/rpg-audio
+- Official source archive: https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip
+- License: CC0 1.0 Universal.
+- Edit: full 154 ms source retained; 10 ms fade-in and 80 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
+
+objective.mp3
+- Source: Audio/handleCoins.ogg from Kenney RPG Audio by Kenney Vleugels (Kenney.nl).
+- Source page: https://kenney.nl/assets/rpg-audio
+- Official source archive: https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip
+- License: CC0 1.0 Universal.
+- Edit: full 846 ms source retained; 20 ms fade-in and 160 ms fade-out; loudness normalized to -22 LUFS / -3 dBTP then attenuated 3.5 dB for MP3 true-peak headroom; mono 44.1 kHz MP3 at 96 kbps.
+
+Kenney RPG Audio -- original archive license text (License.txt)
+---------------------------------------------------------------
+
+RPG Audio
+
+by  Kenney Vleugels (Kenney.nl)
+
+License (Creative Commons Zero, CC0)
+http://creativecommons.org/publicdomain/zero/1.0/
+
+You may use these assets in personal and commercial projects.
+Credit (Kenney or www.kenney.nl) would be nice but is not mandatory.
+
+Donate:   http://support.kenney.nl
+Request:  http://request.kenney.nl
+
+Follow on Twitter for updates:
+@KenneyNL
