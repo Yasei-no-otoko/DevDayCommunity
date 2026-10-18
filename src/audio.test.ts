@@ -1,7 +1,7 @@
 import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { AUDIO_SAMPLES, createGameAudio } from "./audio.ts";
+import { AUDIO_SAMPLES, audioNormalization, createGameAudio } from "./audio.ts";
 import { createState, type GameState } from "./simulation.ts";
 
 function deferred() {
@@ -18,7 +18,16 @@ function browserAudio(t: TestContext) {
   const decodeFailures = new Set<string>();
   let fetchGate: Promise<void> | undefined;
   let resumeFailure = false;
-  const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} });
+  const waveforms = new Map<string, number[]>();
+  type Automation = { type: string; value?: number; time: number };
+  const param = () => ({
+    value: 0, events: [] as Automation[],
+    setValueAtTime(value: number, time: number) { this.value = value; this.events.push({ type: "set", value, time }); },
+    linearRampToValueAtTime(value: number, time: number) { this.value = value; this.events.push({ type: "ramp", value, time }); },
+    cancelAndHoldAtTime(time: number) { this.events.push({ type: "hold", time }); },
+    cancelScheduledValues(time: number) { this.events.push({ type: "cancel", time }); },
+  });
+  const gainNode = () => ({ gain: param(), destination: undefined as unknown, connect(destination: unknown) { this.destination = destination; }, disconnect() {} });
   class FakeSource {
     buffer?: { url: string; duration: number };
     loop = false;
@@ -26,7 +35,8 @@ function browserAudio(t: TestContext) {
     started = false;
     stopped = false;
     disconnected = false;
-    connect() {}
+    gainNode?: ReturnType<typeof gainNode>;
+    connect(destination: ReturnType<typeof gainNode>) { this.gainNode = destination; }
     disconnect() { this.disconnected = true; }
     start() {
       assert.equal(this.started, false, "a source cannot start twice");
@@ -42,7 +52,7 @@ function browserAudio(t: TestContext) {
     destination = {};
     sources: FakeSource[] = [];
     constructor() { contexts.push(this); }
-    createGain() { return { gain: param(), connect() {}, disconnect() {} }; }
+    createGain() { return gainNode(); }
     createBufferSource() {
       const source = new FakeSource();
       this.sources.push(source);
@@ -57,7 +67,8 @@ function browserAudio(t: TestContext) {
     async decodeAudioData(data: ArrayBuffer) {
       const url = new TextDecoder().decode(data);
       if (decodeFailures.has(url)) throw new Error("private raw decoder detail");
-      return { url, duration: 3 };
+      const samples = Float32Array.from(waveforms.get(url) ?? [0.12, -0.12]);
+      return { url, duration: 3, numberOfChannels: 1, getChannelData() { return samples; } };
     }
   }
   const originalContext = Object.getOwnPropertyDescriptor(globalThis, "AudioContext");
@@ -74,7 +85,7 @@ function browserAudio(t: TestContext) {
   const state = createState(123);
   state.status = "running";
   return {
-    state, contexts, requests, failures, decodeFailures,
+    state, contexts, requests, failures, decodeFailures, waveforms,
     gate(promise: Promise<void>) { fetchGate = promise; },
     failResume() { resumeFailure = true; },
     played(sample: keyof typeof AUDIO_SAMPLES) {
@@ -302,4 +313,132 @@ test("decode failures identify the sound without exposing raw decoder details", 
   assert.equal(errors.length, 1);
   assert.match(errors[0], /囁き（デコード失敗）/);
   assert.doesNotMatch(errors[0], /private raw|\/audio\//);
+});
+
+
+test("RMS normalization matches different source levels with peak and silence guards", () => {
+  const buffer = (...channels: number[][]) => ({ numberOfChannels: channels.length, getChannelData: (index: number) => Float32Array.from(channels[index]) });
+  for (const amplitude of [0.04, 0.12, 0.6]) {
+    const gain = audioNormalization(buffer([amplitude, -amplitude], [amplitude, -amplitude]));
+    assert.ok(Math.abs(amplitude * gain - 0.12) < 1e-7);
+    assert.ok(amplitude * gain <= 0.9);
+  }
+  assert.equal(audioNormalization(buffer([0, 0])), 1);
+  assert.equal(audioNormalization(buffer([0.000001, -0.000001])), 1);
+  assert.equal(audioNormalization(buffer([0.001, -0.001])), 4);
+  const sparsePeak = [1, ...Array(9999).fill(0)];
+  assert.equal(audioNormalization(buffer(sparsePeak)), 0.9);
+});
+
+test("normalized mix keeps BGM below foreground and ducks with smooth attack and release", async (t) => {
+  const env = browserAudio(t);
+  env.waveforms.set(AUDIO_SAMPLES.bgm, [0.6, -0.6]);
+  env.waveforms.set(AUDIO_SAMPLES.lock, [0.04, -0.04]);
+  const audio = createGameAudio();
+  t.after(() => audio.dispose());
+  await audio.setEnabled(true);
+  audio.update(env.state, true, true);
+  const music = env.played("bgm")[0];
+  const musicGain = music.gainNode!;
+  const musicBus = musicGain.destination as typeof musicGain;
+  const musicLevel = musicGain.gain.events.find((event) => event.type === "ramp")!.value!;
+  assert.ok(Math.abs(musicLevel * 0.6 - 0.12 * 0.12) < 1e-7);
+  env.contexts[0].currentTime = 2;
+  audio.playIntervention("lock");
+  const lock = env.played("lock")[0];
+  const effectLevel = lock.gainNode!.gain.events.find((event) => event.type === "ramp")!.value!;
+  assert.ok(effectLevel * 0.04 > musicLevel * 0.6 * 3);
+  assert.deepEqual(musicBus.gain.events.at(-1), { type: "ramp", value: 0.25, time: 2.04 });
+  env.contexts[0].currentTime = 3.2;
+  lock.onended?.();
+  lock.stopped = true;
+  assert.deepEqual(musicBus.gain.events.at(-1), { type: "ramp", value: 1, time: 3.5 });
+  assert.equal(music.stopped, false, "ducking never restarts the BGM source");
+  audio.playIntervention("apparition");
+  const activeEffect = env.played("apparition")[0];
+  audio.reset();
+  const resetEvents = musicBus.gain.events.length;
+  assert.equal(activeEffect.onended, null, "reset clears active effect callbacks");
+  assert.equal(musicBus.gain.events.length, resetEvents);
+  assert.equal(env.playing().length, 0);
+});
+
+test("footsteps duck mildly and ambience leaves the music bus unchanged", async (t) => {
+  const env = browserAudio(t);
+  const audio = createGameAudio();
+  t.after(() => audio.dispose());
+  await audio.setEnabled(true);
+  audio.update(env.state, true, true);
+  const music = env.played("bgm")[0];
+  const bus = music.gainNode!.destination as NonNullable<typeof music.gainNode>;
+  assert.equal(bus.gain.value, 1);
+  // Cover the compatibility path where cancelAndHoldAtTime is unavailable.
+  Object.defineProperty(bus.gain, "cancelAndHoldAtTime", { value: undefined });
+  env.state.currentAction = { action: "move", target: "corridor", reason: "test", duration: 4, elapsed: 0 } as GameState["currentAction"];
+  audio.update(env.state, true, true);
+  assert.equal(bus.gain.value, 0.7);
+  assert.ok(bus.gain.events.some((event) => event.type === "cancel"));
+  audio.playIntervention("whisper");
+  assert.equal(bus.gain.value, 0.25);
+  const count = bus.gain.events.length;
+  audio.update(env.state, true, true);
+  assert.equal(bus.gain.events.length, count, "steady frames do not repeatedly reschedule the duck");
+});
+
+test("overlapping foreground voices keep music ducked until the last voice ends", async (t) => {
+  const env = browserAudio(t);
+  const audio = createGameAudio();
+  t.after(() => audio.dispose());
+  await audio.setEnabled(true);
+  audio.update(env.state, true, true);
+  const music = env.played("bgm")[0];
+  const bus = music.gainNode!.destination as NonNullable<typeof music.gainNode>;
+  audio.playIntervention("lock");
+  audio.playIntervention("apparition");
+  const lock = env.played("lock")[0];
+  const apparition = env.played("apparition")[0];
+  assert.equal(bus.gain.value, 0.25);
+  const heldEvents = bus.gain.events.length;
+  env.contexts[0].currentTime = 1.2;
+  lock.onended?.();
+  lock.stopped = true;
+  assert.equal(bus.gain.value, 0.25);
+  assert.equal(bus.gain.events.length, heldEvents, "ending one foreground voice does not release or reschedule the duck");
+  env.contexts[0].currentTime = 2.2;
+  apparition.onended?.();
+  apparition.stopped = true;
+  assert.deepEqual(bus.gain.events.at(-1), { type: "ramp", value: 1, time: 2.5 });
+  assert.equal(env.played("bgm").length, 1);
+  assert.equal(music.stopped, false);
+});
+
+test("an old completion after reset cannot release a new effect duck or restart music", async (t) => {
+  const env = browserAudio(t);
+  const audio = createGameAudio();
+  t.after(() => audio.dispose());
+  await audio.setEnabled(true);
+  audio.update(env.state, true, true);
+  const oldMusic = env.played("bgm")[0];
+  audio.playIntervention("lock");
+  const oldEffect = env.played("lock")[0];
+  const oldCompletion = oldEffect.onended!;
+  audio.reset();
+  assert.equal(oldEffect.onended, null);
+  assert.equal(oldMusic.stopped, true);
+  await audio.setEnabled(true);
+  audio.update(env.state, true, true);
+  const newMusic = env.played("bgm")[1];
+  audio.playIntervention("apparition");
+  const newEffect = env.played("apparition")[0];
+  const bus = newMusic.gainNode!.destination as NonNullable<typeof newMusic.gainNode>;
+  const eventsBefore = [...bus.gain.events];
+  const playingBefore = [...env.playing()];
+  oldCompletion();
+  audio.update(env.state, true, true);
+  assert.equal(bus.gain.value, 0.25);
+  assert.deepEqual(bus.gain.events, eventsBefore);
+  assert.deepEqual(env.playing(), playingBefore);
+  assert.equal(newMusic.stopped, false);
+  assert.equal(newEffect.stopped, false);
+  assert.equal(env.played("bgm").length, 2, "only the deliberate post-reset music source exists");
 });

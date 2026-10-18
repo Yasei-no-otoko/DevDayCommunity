@@ -17,12 +17,31 @@ const sampleNames: Record<Sample, string> = {
   bgm: "BGM", ambience: "環境音", blackout: "停電", lock: "扉の封鎖",
   whisper: "囁き", apparition: "怪異", footstep: "足音", support: "Tiboの支援", objective: "目標達成",
 };
-type Voice = { source: AudioBufferSourceNode; gain: GainNode };
+type Voice = { source: AudioBufferSourceNode; gain: GainNode; duck: number };
+
+/** Linear RMS matching, with a peak ceiling and limited amplification of quiet clips. */
+export function audioNormalization(buffer: Pick<AudioBuffer, "numberOfChannels" | "getChannelData">): number {
+  let sumSquares = 0, peak = 0, count = 0;
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    const data = buffer.getChannelData(channel);
+    for (let frame = 0; frame < data.length; frame++) {
+      const value = Number.isFinite(data[frame]) ? data[frame] : 0;
+      sumSquares += value * value;
+      peak = Math.max(peak, Math.abs(value));
+    }
+    count += data.length;
+  }
+  const rms = count ? Math.sqrt(sumSquares / count) : 0;
+  if (rms < 0.00001) return peak > 0.9 ? 0.9 / peak : 1;
+  return Math.min(4, 0.12 / rms, peak > 0 ? 0.9 / peak : 1);
+}
 type Snapshot = { encounters: number; support: number; keycard: boolean; power: boolean };
 
 export function createGameAudio(options: { onError?: (message: string) => void } = {}) {
   let context: AudioContext | undefined;
   let master: GainNode | undefined;
+  let musicBus: GainNode | undefined;
+  let duckTarget = 1;
   let enabled = false;
   let disposed = false;
   let active = false;
@@ -31,6 +50,7 @@ export function createGameAudio(options: { onError?: (message: string) => void }
   let loading: Promise<void> | undefined;
   let loadAbort: AbortController | undefined;
   const buffers = new Map<Sample, AudioBuffer>();
+  const normalization = new Map<Sample, number>();
   const voices = new Set<Voice>();
   let ambience: Voice | undefined;
   let music: Voice | undefined;
@@ -39,6 +59,23 @@ export function createGameAudio(options: { onError?: (message: string) => void }
   let nextThreat = 0;
   let wasMoving = false;
 
+  function updateDucking(immediate = false) {
+    if (!context || !musicBus) return;
+    const target = music ? Math.min(1, ...[...voices].map((voice) => voice.duck)) : 1;
+    if (!immediate && target === duckTarget) return;
+    const param = musicBus.gain;
+    const now = context.currentTime;
+    // Older Web Audio implementations may omit cancelAndHoldAtTime.
+    if (typeof param.cancelAndHoldAtTime === "function") param.cancelAndHoldAtTime(now);
+    else {
+      if (typeof param.cancelScheduledValues === "function") param.cancelScheduledValues(now);
+      param.setValueAtTime(param.value, now);
+    }
+    const duration = target < duckTarget ? 0.04 : 0.3;
+    if (immediate) param.setValueAtTime(target, now);
+    else param.linearRampToValueAtTime(target, now + duration);
+    duckTarget = target;
+  }
   function stopVoices(keepMusic = false) {
     for (const voice of voices) {
       if (keepMusic && voice === music) continue;
@@ -50,6 +87,7 @@ export function createGameAudio(options: { onError?: (message: string) => void }
     }
     if (!keepMusic) music = undefined;
     ambience = undefined;
+    updateDucking(!keepMusic);
   }
   function cancelLoad() {
     epoch++;
@@ -66,15 +104,16 @@ export function createGameAudio(options: { onError?: (message: string) => void }
     source.loop = loop;
     const now = context.currentTime;
     const length = Math.min(duration ?? buffer.duration, buffer.duration);
+    const level = volume * (normalization.get(sample) ?? 1);
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(volume, now + Math.min(0.04, length / 3));
+    gain.gain.linearRampToValueAtTime(level, now + Math.min(0.04, length / 3));
     if (!loop) {
-      gain.gain.setValueAtTime(volume, now + Math.max(0.04, length - 0.08));
+      gain.gain.setValueAtTime(level, now + Math.max(0.04, length - 0.08));
       gain.gain.linearRampToValueAtTime(0, now + length);
     }
     source.connect(gain);
-    gain.connect(master);
-    const voice = { source, gain };
+    gain.connect(sample === "bgm" ? musicBus! : master);
+    const voice = { source, gain, duck: sample === "bgm" || sample === "ambience" ? 1 : sample === "footstep" ? 0.7 : 0.25 };
     voices.add(voice);
     source.onended = () => {
       source.disconnect();
@@ -82,9 +121,11 @@ export function createGameAudio(options: { onError?: (message: string) => void }
       voices.delete(voice);
       if (ambience === voice) ambience = undefined;
       if (music === voice) music = undefined;
+      updateDucking();
     };
     source.start();
     if (!loop) source.stop(now + length);
+    updateDucking();
     return voice;
   }
   async function loadSamples(gen: number) {
@@ -106,7 +147,10 @@ export function createGameAudio(options: { onError?: (message: string) => void }
         if (disposed || gen !== epoch) return;
         reason = "デコード失敗";
         const buffer = await context!.decodeAudioData(data);
-        if (!disposed && gen === epoch) buffers.set(sample, buffer);
+        if (!disposed && gen === epoch) {
+          normalization.set(sample, audioNormalization(buffer));
+          buffers.set(sample, buffer);
+        }
       } catch {
         if (!controller.signal.aborted && !disposed && gen === epoch) failed.push({ sample, reason: signal.aborted ? "通信タイムアウト" : reason });
       }
@@ -138,6 +182,10 @@ export function createGameAudio(options: { onError?: (message: string) => void }
         master = context.createGain();
         master.gain.value = 0.25;
         master.connect(context.destination);
+        musicBus = context.createGain();
+        musicBus.gain.value = 1;
+        musicBus.connect(master);
+        duckTarget = 1;
       }
       const resumed = context.resume();
       const pending = loadSamples(gen);
@@ -166,7 +214,10 @@ export function createGameAudio(options: { onError?: (message: string) => void }
     };
     musicActive = musicCanPlay && state.status === "running" && !state.paused;
     if (musicActive && enabled) {
-      if (!music) music = play("bgm", 0.45, undefined, true);
+      if (!music) {
+        music = play("bgm", 0.12, undefined, true);
+        updateDucking();
+      }
     } else stopVoices();
     active = canPlay && state.status === "running" && !state.paused && !state.thinking;
     if (!active || !enabled) {
@@ -175,16 +226,16 @@ export function createGameAudio(options: { onError?: (message: string) => void }
       nextFootstep = state.elapsed;
       nextThreat = state.elapsed;
     } else {
-      if (!ambience) ambience = play("ambience", 0.22, undefined, true);
+      if (!ambience) ambience = play("ambience", 0.08, undefined, true);
       const hidden = isHiding(state);
       const sameRoom = !hidden && state.killer.roomId === state.roomId;
       const adjacent = !hidden && CONNECTIONS.some(([a, b]) =>
         (a === state.roomId && b === state.killer.roomId) || (b === state.roomId && a === state.killer.roomId));
       if (previous && snapshot.encounters > previous.encounters) {
-        play("apparition", 0.3, 1.8);
+        play("apparition", 0.6, 1.8);
         nextThreat = state.elapsed + 5;
       } else if (state.killer.encountered && (sameRoom || adjacent) && state.elapsed >= nextThreat) {
-        play("whisper", sameRoom ? 0.15 : 0.08, 1.6);
+        play("whisper", sameRoom ? 0.35 : 0.22, 1.6);
         nextThreat = state.elapsed + (sameRoom ? 5 : 8);
       }
       const moving = state.currentAction?.action === "move";
@@ -193,14 +244,14 @@ export function createGameAudio(options: { onError?: (message: string) => void }
         nextFootstep = state.elapsed + 0.65;
       }
       wasMoving = moving;
-      if (previous && snapshot.support > previous.support) play("support", 0.24, 1.4);
-      if (previous && ((!previous.keycard && snapshot.keycard) || (!previous.power && snapshot.power))) play("objective", 0.2, 1.4);
+      if (previous && snapshot.support > previous.support) play("support", 0.45, 1.4);
+      if (previous && ((!previous.keycard && snapshot.keycard) || (!previous.power && snapshot.power))) play("objective", 0.5, 1.4);
     }
     // Observe even silent frames, so resuming never replays events from a pause/load.
     previous = snapshot;
   }
   function playIntervention(type: SabotageType) {
-    play(type, type === "apparition" ? 0.3 : 0.23, type === "lock" ? 1.2 : 2.2);
+    play(type, type === "apparition" ? 0.6 : 0.45, type === "lock" ? 1.2 : 2.2);
   }
   function reset() {
     enabled = false;
@@ -218,6 +269,8 @@ export function createGameAudio(options: { onError?: (message: string) => void }
     reset();
     disposed = true;
     buffers.clear();
+    normalization.clear();
+    musicBus?.disconnect();
     master?.disconnect();
     if (context) void context.close().catch(() => {});
   }

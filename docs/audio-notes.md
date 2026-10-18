@@ -49,3 +49,15 @@
 公開音声のブラウザー診断では、現行の効果音8点と元名のBGMはHTTP200でデコードでき、旧URL `whisper.mp3` だけが404でした。開いたままの旧クライアントでも読み込めるよう、このURLに同じ `whisper-ghost.mp3` の互換コピーを保持します。BGMのユーザーによるリネーム後は参照コード・クレジットもmusic.mp3へ更新します。
 
 修正版の実ブラウザー検証では、実際のWeb Audio OfflineAudioContextで18秒をレンダリングし、15.680秒の曲の一周後（17〜17.5秒）にもRMS 0.02895048の音声出力を確認しました。全9音源が取得・デコードでき、音源エラーは0件です。これは音声エンジンの出力確認で、実スピーカーの聴取評価ではありません。
+
+## BGMと効果音のノーマライズ・ダッキング
+
+2026-10-18の音量調査では、ユーザー提供BGMはRMS -12.6 dBFS / peak -0.1 dBFS / integrated -13.1 LUFSでした。一方、効果音はRMS -21〜-34 dBFSで、BGMが効果音を覆いやすい音源レベルでした。1秒未満の短い効果音はLUFSのゲート判定が不安定なため、RMSとpeakを基準にします。
+
+音源ファイルは変更せず、デコード時に各AudioBufferの全チャンネルからRMSとpeakを一度測定します。基準RMS 0.12、最大増幅4倍、正規化後のpeak上限0.9から安全な倍率を求め、再生Gainへ適用します。無音や不正な測定値を大きく増幅しません。これはRMS正規化であり、LUFSの一致を保証するものではありません。
+
+BGMと環境音の基準レベルを下げ、干渉・遭遇・Tibo・目標達成などの効果音を前に出します。BGMには独立したGainバスを置き、効果音中は小さくし、終わると滑らかに戻します。重なる効果音をまとめて管理し、API待ちで効果音が止まった時も音楽の同じループを保持します。リセット・ミュート・破棄では音量オートメーションと古い音源の通知を解除します。
+
+実装前に[AudioBuffer.getChannelData](https://developer.mozilla.org/en-US/docs/Web/API/AudioBuffer/getChannelData)、[GainNode](https://developer.mozilla.org/en-US/docs/Web/API/GainNode)、[AudioParam](https://developer.mozilla.org/en-US/docs/Web/API/AudioParam)、[setTargetAtTime](https://developer.mozilla.org/en-US/docs/Web/API/AudioParam/setTargetAtTime)、[DynamicsCompressorNode](https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode)を再確認しました。急なゲイン変更のクリック音を避けるため、互換性を確認したAudioParamの時間制御を使います。
+
+実ブラウザーのOfflineAudioContextで同じ9音源を18秒レンダリングし、音源エラー0件、BGMの一周後のRMS 0.00396111を確認しました。従来のBGM出力より約17.3dB下がり、囁きの測定区間ではダッキング中のBGMより約3.9dB大きくなりました。全種類の効果音を同時再生した負荷確認でも合成ピークは0.26656（-11.48dBFS）で、クリップしていません。これはブラウザーの音声信号の測定であり、実スピーカーの聴取評価ではありません。音声17件を含む全99件のテストが成功し、重複効果音の終了順序、リセット後の古い通知、API待ち中のループ継続も確認しました。
