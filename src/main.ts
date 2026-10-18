@@ -95,7 +95,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     </header>
     <section class="briefing" aria-label="実験のルール"><span><b>あなたは怪異。</b> AIを閉じ込めろ。</span><span><b>勝利</b> 恐怖100・180秒阻止（接触後も続行）</span><span><b>操作</b> 開始 → 部屋選択 → 1〜4で干渉</span><span class="briefing-loss">鍵・電源を確保したAIが脱出すると敗北</span></section>
     <main class="console" aria-label="施設監視コンソール">
-      <section class="subject-panel"><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span><img id="subject-portrait" src="/sam-altman.webp" alt="" aria-hidden="true">${svg("signal", 13)}</div><div class="subject-name"><h2>SAM <small>サム・アルトマン</small></h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">AI</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} 選択された行動</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">サム・アルトマンの脱出開始を待っています。</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
+      <section class="subject-panel" id="subject-panel"><span id="damage-badge" class="damage-badge" role="status" aria-live="polite" aria-atomic="true" hidden></span><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span><img id="subject-portrait" src="/sam-altman.webp" alt="" aria-hidden="true">${svg("signal", 13)}</div><div class="subject-name"><h2>SAM <small>サム・アルトマン</small></h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">AI</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} 選択された行動</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">サム・アルトマンの脱出開始を待っています。</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
       <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div class="tibo-copy"><span>TIBO <b>SUPPORT</b></span><strong>エネルギー・使用間隔リセット</strong><small>4つの干渉を再使用可能</small><em>エネルギー100に回復</em></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
       <section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select" aria-describedby="target-summary room-hint">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><p id="target-summary" class="target-summary">対象：受付 · サムが在室</p><span class="room-hint sr-only" id="room-hint">サムを自動追跡</span></div><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 36)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}<kbd>${i + 1}</kbd></strong><span class="sabotage-detail">持続${SABOTAGE[item.type].duration}秒 · CD ${SABOTAGE[item.type].cooldown}秒</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p></section>
     </main>
@@ -104,12 +104,32 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <dialog id="log-dialog" aria-labelledby="log-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">EXPERIMENT / 007</div><h2 id="log-title">実験の全記録</h2><div id="full-log"></div></dialog>
     <dialog id="thought-dialog" aria-labelledby="thought-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">サム・アルトマン / SELECTED ACTION</div><h2 id="thought-title">選択された行動の説明</h2><p class="dialog-fine">実APIモードでは、Decisions APIが選択した候補にあらかじめ付けた説明です。サム・アルトマンの独白や内部思考ではありません。</p><p id="full-thought"></p><h3>Agents APIの脱出方針</h3><p id="full-plan">実APIモードで受信すると表示します。</p></dialog>
     <dialog id="result-dialog" aria-labelledby="result-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div id="result" class="result" role="region" aria-label="実験結果" aria-live="polite"></div></dialog>
-    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — サムが部屋にいる時は閉じ込めて退室を阻止し、部屋の外にいる時は入室を阻止します。移動中に封鎖すると、その移動を止めます。</li><li><b>囁き・怪異</b> — 同じ部屋のサムの恐怖を高めます。</li><li><b>ぬこぬこさん</b> — キーカード取得時に出現します。サムと同じ部屋に入ると接触を記録します。接触後も実験は続きます。</li></ol><p>恐怖100または制限時間180秒であなたの勝利です。接触済みで恐怖100に達した時は、サム捕獲の結果を表示します。サムが鍵と電源を確保して脱出すると、あなたの敗北です。</p><p>実APIモードではぬこぬこさんもDecisions APIで最短の追跡経路を選び、彼は初遭遇まで位置を知りません。ときどき現れるTiboはエネルギーを100に回復し、4つの干渉の使用間隔をリセットします。実験の進行は戻りません。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は開始操作で有効になります。<a href="/audio/CREDITS.txt" target="_blank" rel="noreferrer">音素材・ライセンス</a>。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
+    <dialog id="help-dialog" aria-labelledby="help-title"><button class="dialog-close icon-button" id="close-help" aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONTAINMENT PROTOCOL</div><h2 id="help-title">出口を、与えるな。</h2><p>AIが操作する脱出者「サム・アルトマン」は、鍵と電源を確保して脱出を目指します。あなたは建物に棲む怪異。マップの部屋を選び、干渉してください。</p><ol><li><b>停電</b> — 部屋を暗くし、探索と装置の操作を遅らせます。</li><li><b>扉を封鎖</b> — サムが部屋にいる時は閉じ込めて退室を阻止し、部屋の外にいる時は入室を阻止します。移動中に封鎖すると、その移動を止めます。</li><li><b>囁き・怪異</b> — 同じ部屋のサムの恐怖を高めます。</li><li><b>ぬこぬこさん</b> — キーカード取得時に出現します。地図上でサムに接触すると捕獲状態を記録します。接触後も実験は続きます。</li></ol><p>恐怖100または制限時間180秒であなたの勝利です。接触済みで恐怖100に達した時は、サム捕獲の結果を表示します。サムが鍵と電源を確保して脱出すると、あなたの敗北です。</p><p>実APIモードではぬこぬこさんもDecisions APIで最短の追跡経路を選び、彼は初遭遇まで位置を知りません。ときどき現れるTiboはエネルギーを100に回復し、4つの干渉の使用間隔をリセットします。実験の進行は戻りません。</p><p class="dialog-fine">部屋はマップや選択メニューから指定できます。追跡ONでサム・アルトマンの現在地・移動先を自動選択。1〜4: 干渉 / Space: 開始・一時停止 / R: リセット。音は開始操作で有効になります。<a href="/audio/CREDITS.txt" target="_blank" rel="noreferrer">音素材・ライセンス</a>。実APIモードはAgents APIの脱出方針とDecisions APIの行動選択を使い、APIの応答待ち中はゲーム時間が止まります。</p><button class="start-button" id="understood">理解した ${svg("arrow", 16)}</button></dialog><div id="toast" role="status"></div>`;
 
   const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
     root.querySelector<T>(`#${id}`)!;
   const dialogs = Array.from(root.querySelectorAll<HTMLDialogElement>("dialog"));
   const dialogOpeners = new WeakMap<HTMLDialogElement, HTMLElement>();
+  const titleDialog = document.createElement("dialog");
+  titleDialog.className = "title-screen";
+  titleDialog.setAttribute("aria-label", "BLACKSITE タイトル");
+  titleDialog.innerHTML = '<img src="/blacksite-title.png" alt="BLACKSITE タイトル"><button type="button" class="title-skip">スキップ</button>';
+  const titleSkip = titleDialog.querySelector<HTMLButtonElement>("button")!;
+  function closeTitle() {
+    if (!titleDialog.open) return;
+    titleDialog.close();
+    titleDialog.remove();
+    if (!disposed) $("start").focus({ preventScroll: true });
+  }
+  listen(titleSkip, "click", closeTitle);
+  listen(titleDialog, "cancel", (event) => { event.preventDefault(); closeTitle(); });
+  document.addEventListener("keydown", (event) => {
+    if (!titleDialog.open) return;
+    event.stopImmediatePropagation();
+    if (event.key === "Escape") { event.preventDefault(); closeTitle(); }
+    else if (event.key === "Tab") { event.preventDefault(); titleSkip.focus({ preventScroll: true }); }
+    else if (event.target !== titleSkip) event.preventDefault();
+  }, { capture: true, signal: events.signal });
   function openDialog(dialog: HTMLDialogElement, opener?: HTMLElement) {
     if (disposed || cinematics.active || dialog.open) return;
     tiboWasVisible = false;
@@ -121,7 +141,10 @@ export function mountBlacksite(root: HTMLElement): () => void {
   }
   for (const dialog of dialogs) {
     listen(dialog, "close", () => {
-      if (!disposed) dialogOpeners.get(dialog)?.focus();
+      if (!disposed) {
+        dialogOpeners.get(dialog)?.focus();
+        syncAudio();
+      }
     });
     listen(dialog, "click", (event) => {
       if (event.target === dialog) {
@@ -166,6 +189,9 @@ export function mountBlacksite(root: HTMLElement): () => void {
   let lastDecisionActor = "";
   // Presentation state stays outside the deterministic simulation and API history.
   let watchback: { record: InterventionRecord; phase: "queued" | "active"; remaining: number } | null = null;
+  let cinematicQueue: { src: string; label: string; notice: string }[] = [];
+  let eventMoviePending = false;
+  let damageRemaining = 0;
   let watchbackSeen = false;
   let watchbackFocus: HTMLElement | null = null;
   let lastTiboAppearance = 0;
@@ -183,8 +209,37 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (image.complete && image.naturalWidth) ready();
   }
   function watchbackActive() { return watchback?.phase === "active"; }
+  function damageVisible() {
+    return !cinematics.active && !eventMoviePending && !cinematicQueue.length && !watchbackActive() && !document.hidden && !state.paused && !dialogs.some((dialog) => dialog.open);
+  }
+  function renderDamage() {
+    const visible = damageRemaining > 0;
+    $("subject-panel").classList.toggle("is-damaged", visible);
+    $("subject-panel").classList.toggle("damage-visible", visible && damageVisible());
+    $("damage-badge").hidden = !visible;
+  }
+  function showDamage(amount: number, contact = false) {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    damageRemaining = 1.2;
+    setText("damage-badge", `${contact ? "接触 · " : ""}恐怖 +${Number(amount.toFixed(1))}`);
+    renderDamage();
+  }
+  function playQueuedCinematic() {
+    if (disposed || eventMoviePending || cinematics.active || !cinematicQueue.length) return;
+    const movie = cinematicQueue.shift()!;
+    const gen = generation;
+    eventMoviePending = true;
+    void cinematics.play(movie.src, movie.label, !soundOn, false, movie.notice).then((advance) => {
+      if (disposed || generation !== gen) return;
+      eventMoviePending = false;
+      if (!advance) cinematicQueue = [];
+      else playQueuedCinematic();
+      render();
+      syncAudio();
+    });
+  }
   function presentationReady() {
-    return !cinematics.active && state.status === "running" && !state.paused && !state.thinking && !apiPending && !document.hidden && !dialogs.some((dialog) => dialog.open);
+    return !cinematics.active && !eventMoviePending && !cinematicQueue.length && state.status === "running" && !state.paused && !state.thinking && !apiPending && !document.hidden && !dialogs.some((dialog) => dialog.open);
   }
   function renderWatchback() {
     const active = watchbackActive();
@@ -192,6 +247,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     watchbackElement.parentElement!.classList.toggle("watchback-active", active);
     mapElement.inert = active;
     mapElement.setAttribute("aria-hidden", String(active));
+    syncTiboPresentation();
     if (active && watchback) {
       const record = watchback.record;
       const name = interventions.find((item) => item.type === record.type)!.name;
@@ -255,8 +311,16 @@ export function mountBlacksite(root: HTMLElement): () => void {
       $("toast").classList.remove("visible", "capture-notice");
     }, 3600);
   }
+  function syncTiboPresentation() {
+    const visible = tiboRemaining > 0 && !cinematics.active && !eventMoviePending && !cinematicQueue.length && !watchbackActive() && !document.hidden && !dialogs.some((dialog) => dialog.open);
+    $("tibo-banner").classList.toggle("is-obscured", !visible);
+    if (!visible) tiboWasVisible = false;
+    return visible;
+  }
   function syncAudio() {
-    gameAudio.update(state, presentationReady() && !watchbackActive(), !cinematics.active && !watchbackActive() && state.status === "running" && !state.paused && !document.hidden && !dialogs.some((dialog) => dialog.open));
+    syncTiboPresentation();
+    renderDamage();
+    gameAudio.update(state, presentationReady() && !watchbackActive(), !cinematics.active && !eventMoviePending && !cinematicQueue.length && !watchbackActive() && state.status === "running" && !state.paused && !document.hidden && !dialogs.some((dialog) => dialog.open));
   }
   function renderAudioButton() {
     const label = soundOn ? "音をオフ" : "音をオン";
@@ -383,6 +447,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (
       apiPending ||
       cinematics.active ||
+      eventMoviePending || cinematicQueue.length > 0 ||
       watchbackActive() ||
       document.hidden ||
       dialogs.some((dialog) => dialog.open) ||
@@ -463,6 +528,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
       const live = ($("mode") as HTMLSelectElement).value === "api";
       if (live && !liveConfigured) { void startLive(); return; }
       if (soundOn) void setAudioEnabled(true);
+      cinematics.prepare(["/video/spawn.mp4", "/video/contact.mp4"]);
       const gen = generation;
       for (const dialog of dialogs) if (dialog.open) dialog.close();
       void cinematics.play("/video/op.mp4", "オープニング", !soundOn, true).then((advance) => {
@@ -483,6 +549,11 @@ export function mountBlacksite(root: HTMLElement): () => void {
     render();
   }
   function reset() {
+    cinematicQueue = [];
+    eventMoviePending = false;
+    damageRemaining = 0;
+    setText("damage-badge", "");
+    renderDamage();
     cinematics.cancel();
     soundRevision++;
     gameAudio.reset();
@@ -560,6 +631,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
       gameAudio.playIntervention(type);
       const name = interventions.find((i) => i.type === type)!.name;
       const fearGain = Number((state.fear - before).toFixed(1));
+      showDamage(fearGain);
       const lockFeedback = type === "lock"
         ? stopped
           ? incoming ? "移動を中断し、この部屋への入室を阻止。" : "移動を中断し、この部屋からの退室を阻止。"
@@ -654,8 +726,12 @@ export function mountBlacksite(root: HTMLElement): () => void {
       lastTiboAppearance = state.tibo.appearances;
       tiboRemaining = 2.6;
       tiboWasVisible = false;
+      // Restart the cut-in once per appearance, including a new event during a notice.
+      $("tibo-banner").classList.add("hidden");
+      void $("tibo-banner").offsetWidth;
     }
     $("tibo-banner").classList.toggle("hidden", tiboRemaining <= 0);
+    syncTiboPresentation();
     $("room-number").textContent = room.label;
     ($("room-select") as HTMLSelectElement).value = selectedRoom;
     $("follow").classList.toggle("active", following);
@@ -672,6 +748,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     setText("interference-feedback", lastFeedback);
     $("timer").textContent = formatTime(Math.ceil(state.timeRemaining));
     $("timer").classList.toggle("urgent", state.timeRemaining < 30);
+    renderDamage();
     $("fear").textContent = Math.round(state.fear).toString().padStart(2, "0");
     $("fear-fill").style.width = `${state.fear}%`;
     $("fear-fill").style.background = state.fear > 60 ? "var(--danger)" : "var(--accent)";
@@ -761,7 +838,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     $("result").classList.toggle("capture-failure", caughtAtFearLimit);
     $("result").setAttribute("role", caughtAtFearLimit ? "alert" : "region");
     $("result").setAttribute("aria-label", caughtAtFearLimit ? "恐怖100到達後のぬこぬこさん捕獲による実験失敗" : "実験結果");
-    if (ended && !cinematics.active) {
+    if (ended && !cinematics.active && !eventMoviePending && !cinematicQueue.length) {
       const resultKey = `${state.status}:${state.terminalReason}:${state.elapsed}:${state.interventions}`;
       if (resultKey !== lastResultKey) {
         lastResultKey = resultKey;
@@ -874,15 +951,18 @@ export function mountBlacksite(root: HTMLElement): () => void {
     if (disposed) return;
     const dt = Math.min((now - last) / 1000, 0.15);
     last = now;
+    if (damageRemaining > 0 && damageVisible()) damageRemaining = Math.max(0, damageRemaining - dt);
+    renderDamage();
     const statusBeforeTick = state.status;
+    const fearBeforeTick = state.fear;
     const encounterCountBeforeTick = state.killer.encounterCount;
     const wasKillerSpawned = state.killer.spawned;
     advanceWatchback(dt);
-    const tiboVisible = !cinematics.active && tiboRemaining > 0 && !watchbackActive() && !document.hidden && !dialogs.some((dialog) => dialog.open);
+    const tiboVisible = syncTiboPresentation();
     // Count only displayed frames, so a camera cue or modal cannot consume the notice.
     if (tiboVisible && tiboWasVisible) tiboRemaining = Math.max(0, tiboRemaining - dt);
     tiboWasVisible = tiboVisible;
-    if (!cinematics.active && !watchbackActive() && !state.thinking && !document.hidden && !dialogs.some((dialog) => dialog.open)) {
+    if (!cinematics.active && !eventMoviePending && !cinematicQueue.length && !watchbackActive() && !state.thinking && !document.hidden && !dialogs.some((dialog) => dialog.open)) {
       if (pendingDecision && !state.paused && state.status === "running") {
         const decision = pendingDecision;
         pendingDecision = null;
@@ -902,21 +982,21 @@ export function mountBlacksite(root: HTMLElement): () => void {
       tick(state, dt);
     }
     syncAudio();
-    // Spawn transition hook: wire the future keycard-triggered Nuko movie here.
-    // No movie is requested until the actual asset is supplied.
     const firstKillerSpawn = !wasKillerSpawned && state.killer.spawned;
-    if (firstKillerSpawn) toast("キーカード取得。ぬこぬこさんが出現しました。");
+    if (firstKillerSpawn) {
+      const notice = "キーカード取得。ぬこぬこさんが出現しました。";
+      toast(notice);
+      cinematicQueue.push({ src: "/video/spawn.mp4", label: "ぬこぬこさんの出現", notice });
+    }
     const contactOccurred = state.killer.encounterCount > encounterCountBeforeTick;
-    const firstContact = contactOccurred && encounterCountBeforeTick === 0;
     if (contactOccurred) {
-      const gen = generation;
-      // Contact is separate from spawning; an ending waits until this movie closes.
-      void cinematics.play("/video/contact.mp4", "ぬこぬこさんとの接触", !soundOn).then((advance) => {
-        if (advance && !disposed && generation === gen) render();
-      });
+      const damage = Math.max(0, state.fear - fearBeforeTick);
+      showDamage(damage, true);
+      const notice = `接触！ 恐怖 +${Number(damage.toFixed(1))} / 現在 ${Math.round(state.fear)}`;
+      toast(notice, "capture");
+      cinematicQueue.push({ src: "/video/contact.mp4", label: "ぬこぬこさんとの接触", notice });
     }
     const justEnded = statusBeforeTick === "running" && state.status !== "running";
-    if (firstContact) toast("ぬこぬこさんがサムに接触！捕獲状態を記録しました。恐怖100まで実験は続きます。", "capture");
     if (firstKillerSpawn || contactOccurred || justEnded) {
       render();
       lastRender = now;
@@ -924,12 +1004,15 @@ export function mountBlacksite(root: HTMLElement): () => void {
       render();
       lastRender = now;
     }
+    // Update fear/map first, then show the immediately available event caption.
+    playQueuedCinematic();
     if (state.controller === "api" && sessionId && !apiError)
       void nextLiveDecision();
     frameId = requestAnimationFrame(frame);
   }
   listen(document, "visibilitychange", () => {
     tiboWasVisible = false;
+    syncTiboPresentation();
     if (document.hidden && state.status === "running") {
       state.paused = true;
       render();
@@ -938,6 +1021,9 @@ export function mountBlacksite(root: HTMLElement): () => void {
   function dispose() {
     if (disposed) return;
     disposed = true;
+    damageRemaining = 0;
+    cinematicQueue = [];
+    eventMoviePending = false;
     soundRevision++;
     cinematics.dispose();
     gameAudio.dispose();
@@ -945,6 +1031,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
     cancelAnimationFrame(frameId);
     clearTimeout(toastTimer);
     events.abort();
+    if (titleDialog.open) titleDialog.close();
+    titleDialog.remove();
     if (document.fullscreenElement === root) void document.exitFullscreen().catch(() => {});
     closeSession();
     sessionId = "";
@@ -964,5 +1052,8 @@ export function mountBlacksite(root: HTMLElement): () => void {
   renderAudioButton();
   render();
   frameId = requestAnimationFrame(frame);
+  root.append(titleDialog);
+  titleDialog.showModal();
+  titleSkip.focus({ preventScroll: true });
   return dispose;
 }

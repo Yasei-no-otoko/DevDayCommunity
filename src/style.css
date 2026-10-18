@@ -344,6 +344,47 @@ select {
   gap:6px;
 }
 
+
+/* Fear impacts stay inside the subject monitor; the badge never shifts its grid. */
+.subject-panel { position:relative; isolation:isolate; }
+.subject-panel::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  opacity:0;
+  background:radial-gradient(ellipse at 18% 48%,#9d172c3d,transparent 72%),linear-gradient(100deg,#650e249c,transparent 76%);
+  box-shadow:inset 3px 0 #db455a,inset 0 0 42px #7f13234f;
+  transition:opacity .18s ease-out;
+}
+.subject-panel.is-damaged::before { opacity:1; }
+.subject-panel.is-damaged .section-title>.micro { visibility:hidden; }
+.damage-badge {
+  position:absolute;
+  top:12px;
+  right:12px;
+  max-width:calc(100% - 90px);
+  padding:2px 7px;
+  border:1px solid #cf485b80;
+  border-radius:3px;
+  background:#390e1ce8;
+  color:#ffd3d9;
+  font-size:11px;
+  font-weight:600;
+  line-height:18px;
+  white-space:nowrap;
+  pointer-events:none;
+}
+.subject-panel.is-damaged .fear-header strong { color:#ffc2ca; text-shadow:0 0 16px #ed365f80; }
+.subject-panel.is-damaged .fear-track { box-shadow:0 0 12px #e1315b80; }
+.subject-panel.is-damaged #fear-fill { background:#ec4863!important; }
+.subject-panel.damage-visible .fear-header strong { animation:fear-impact 1.2s ease-out both; }
+@keyframes fear-impact {
+  0% { text-shadow:0 0 22px #ff597f; }
+  100% { text-shadow:0 0 12px #ed365f60; }
+}
+
 .subject-identity {
   display:flex;
   align-items:center;
@@ -785,15 +826,32 @@ select {
   clip-path:polygon(9% 0,100% 0,100% 100%,0 100%);
   border-top:1px solid var(--accent-dim);
   border-left:1px solid var(--line-strong);
-  background:linear-gradient(155deg,#2b3540e8,#0f141af5 75%);
-  animation:tibo-cutin .25s ease-out both;
+  background:radial-gradient(ellipse at 75% 22%,#a789493b,transparent 60%),linear-gradient(155deg,#2a2921f5,#10110ef8 75%);
+  box-shadow:inset 0 0 36px #c6a66620,inset 1px 1px 0 #ead2a45e;
+  transform-origin:100% 80%;
+  isolation:isolate;
+}
+.tibo-banner:not(.hidden) {
+  animation:tibo-cutin 2.6s cubic-bezier(.2,.75,.22,1) both;
+}
+.tibo-banner::before {
+  content:"";
+  position:absolute;
+  z-index:0;
+  inset:-12%;
+  pointer-events:none;
+  background:radial-gradient(ellipse at 65% 34%,#fff5d633 0,transparent 34%),radial-gradient(ellipse at 65% 34%,transparent 35%,#d8b67270 35.5%,transparent 36.3%,transparent 49%,#d8b67230 49.5%,transparent 50.2%);
+  opacity:.75;
 }
 .tibo-banner::after {
   content:"";
   position:absolute;
   inset:0;
+  z-index:2;
   pointer-events:none;
-  background:linear-gradient(180deg,transparent 25%,#0f141a11 45%,#0f141ae8 76%,var(--surface-deep) 100%);
+  background-image:linear-gradient(115deg,transparent 40%,#fff1ca00 44%,#fff1ca66 49%,#fff8e7aa 50%,#fff1ca00 56%,transparent 61%),linear-gradient(180deg,transparent 25%,#11110e11 45%,#11110eeb 76%,var(--surface-deep) 100%);
+  background-size:260% 100%,100% 100%;
+  background-position:150% 0,0 0;
 }
 .tibo-banner img {
   display:none;
@@ -803,7 +861,9 @@ select {
   width:175%;
   max-width:none;
   height:auto;
-  filter:drop-shadow(0 4px 10px #0008);
+  z-index:1;
+  transform-origin:58% 60%;
+  filter:drop-shadow(0 4px 10px #0008) drop-shadow(0 0 14px #c6a66640);
 }
 .tibo-banner.has-portrait img { display:block; }
 .tibo-fallback {
@@ -816,7 +876,7 @@ select {
 .tibo-banner.has-portrait .tibo-fallback { display:none; }
 .tibo-copy {
   position:absolute;
-  z-index:1;
+  z-index:3;
   bottom:14px;
   left:25px;
   right:12px;
@@ -831,10 +891,52 @@ select {
   color:var(--accent-bright);
 }
 .tibo-copy>span b { font:500 9px/1 "IBM Plex Mono",monospace; letter-spacing:.12em; }
-.tibo-copy strong { font-size:18px; line-height:1.4; color:var(--text-bright); white-space:nowrap; }
+.tibo-copy strong { font-size:18px; line-height:1.4; color:var(--text-bright); white-space:normal; overflow-wrap:anywhere; text-wrap:balance; }
 .tibo-copy small { font-size:12px; line-height:1.4; color:var(--text-bright); }
-.tibo-copy em { font-size:11px; line-height:1.4; color:var(--text-secondary); font-style:normal; }
-@keyframes tibo-cutin { from { opacity:0; } to { opacity:1; } }
+.tibo-copy em { font-size:11px; line-height:1.4; color:#f4dfae; font-style:normal; font-weight:700; letter-spacing:.04em; text-shadow:0 0 14px #d8b67288,0 2px 6px #000; }
+.tibo-banner:not(.hidden)::before { animation:tibo-halo 2.6s ease-out both; }
+.tibo-banner:not(.hidden)::after { animation:tibo-sweep 1.25s cubic-bezier(.2,.65,.3,1) .18s both; }
+.tibo-banner:not(.hidden) img { animation:tibo-portrait 2.6s cubic-bezier(.18,.7,.25,1) both; }
+.tibo-banner:not(.hidden) .tibo-copy>span { animation:tibo-copy-in .5s cubic-bezier(.16,.8,.25,1) .15s both; }
+.tibo-banner:not(.hidden) .tibo-copy strong { animation:tibo-copy-in .5s cubic-bezier(.16,.8,.25,1) .23s both; }
+.tibo-banner:not(.hidden) .tibo-copy small { animation:tibo-copy-in .5s cubic-bezier(.16,.8,.25,1) .3s both; }
+.tibo-banner:not(.hidden) .tibo-copy em { animation:tibo-energy .65s cubic-bezier(.16,.8,.25,1) .36s both; }
+.tibo-banner.is-obscured,.tibo-banner.is-obscured *,.tibo-banner.is-obscured::before,.tibo-banner.is-obscured::after {
+  animation-play-state:paused!important;
+}
+@keyframes tibo-cutin {
+  0% { opacity:0; transform:translate3d(28%,12px,0) scale(.96); }
+  18% { opacity:1; transform:translate3d(-2%,0,0) scale(1.01); }
+  30%,88% { opacity:1; transform:translate3d(0,0,0) scale(1); }
+  100% { opacity:0; transform:translate3d(9%,0,0) scale(.99); }
+}
+@keyframes tibo-portrait {
+  0% { transform:translate3d(8%,4%,0) scale(1.08); }
+  26% { transform:translate3d(-1%,0,0) scale(1.01); }
+  84%,100% { transform:translate3d(0,0,0) scale(1); }
+}
+@keyframes tibo-halo {
+  0% { opacity:0; transform:scale(.78); }
+  24% { opacity:1; transform:scale(1.02); }
+  70%,100% { opacity:.55; transform:scale(1.08); }
+}
+@keyframes tibo-sweep {
+  from { background-position:150% 0,0 0; }
+  to { background-position:-150% 0,0 0; }
+}
+@keyframes tibo-copy-in {
+  from { opacity:0; transform:translate3d(18px,0,0); }
+  to { opacity:1; transform:translate3d(0,0,0); }
+}
+@keyframes tibo-energy {
+  0% { opacity:0; transform:translate3d(0,8px,0) scale(.96); }
+  65% { opacity:1; transform:translate3d(0,-1px,0) scale(1.03); }
+  100% { opacity:1; transform:translate3d(0,0,0) scale(1); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .tibo-banner:not(.hidden),.tibo-banner:not(.hidden) *,.tibo-banner:not(.hidden)::before,.tibo-banner:not(.hidden)::after { animation:none!important; }
+  .tibo-banner:not(.hidden)::after { background-image:linear-gradient(180deg,transparent 25%,#11110e11 45%,#11110eeb 76%,var(--surface-deep) 100%); background-size:100% 100%; background-position:0 0; }
+}
 @media(max-width:650px) {
   .tibo-banner { width:min(230px,64%); height:min(290px,78%); }
   .tibo-copy { left:23px; right:8px; bottom:12px; gap:4px; }
@@ -1909,3 +2011,39 @@ dialog .start-button {
 .cinematic-controls button { padding: 10px 16px; background: #151515; color: #fff; border: 1px solid #777; cursor: pointer; }
 .cinematic-controls button:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 .cinematic-status { background: #000c; font-size: 13px; }
+
+/* A fresh page opens the supplied title art; the experiment starts separately. */
+.title-screen {
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100dvh;
+  max-width:none;
+  max-height:none;
+  margin:0;
+  padding:0;
+  border:0;
+  overflow:hidden;
+  background:#000;
+  color:#fff;
+}
+.title-screen[open] { display:grid; place-items:center; }
+.title-screen::backdrop { background:#000; }
+.title-screen>img { width:100%; height:100%; min-height:0; object-fit:contain; }
+.title-skip {
+  position:absolute;
+  right:max(24px,env(safe-area-inset-right));
+  bottom:max(24px,env(safe-area-inset-bottom));
+  min-width:112px;
+  min-height:46px;
+  padding:10px 24px;
+  border:1px solid #ddd;
+  border-radius:3px;
+  background:#111e;
+  color:#fff;
+  font-size:15px;
+  font-weight:600;
+  line-height:1.4;
+  cursor:pointer;
+}
+.title-skip:focus-visible { outline:3px solid #fff; outline-offset:5px; }

@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { ROOMS, isHiding, type GameState, type RoomId } from "./simulation";
+import { ROOMS, MAP_ROUTES as routes, routePosition, actorPosition, isHiding, type GameState, type RoomId } from "./simulation";
 
 type Room = (typeof ROOMS)[number];
 type Point = { x: number; y: number };
@@ -16,81 +16,7 @@ const mapTone = {
 };
 const center = (r: Room): Point => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 const roomFor = (id: RoomId) => ROOMS.find((r) => r.id === id)!;
-const routes: { from: RoomId; to: RoomId; points: number[][] }[] = [
-  {
-    from: "reception",
-    to: "corridor",
-    points: [
-      [230, 515],
-      [350, 515],
-      [350, 445],
-      [495, 445],
-    ],
-  },
-  {
-    from: "reception",
-    to: "ward",
-    points: [
-      [230, 515],
-      [230, 260],
-    ],
-  },
-  {
-    from: "ward",
-    to: "archive",
-    points: [
-      [230, 260],
-      [370, 260],
-      [370, 215],
-      [505, 215],
-    ],
-  },
-  {
-    from: "archive",
-    to: "corridor",
-    points: [
-      [505, 215],
-      [505, 445],
-    ],
-  },
-  {
-    from: "corridor",
-    to: "laboratory",
-    points: [
-      [495, 445],
-      [650, 445],
-      [650, 230],
-      [805, 230],
-    ],
-  },
-  {
-    from: "corridor",
-    to: "generator",
-    points: [
-      [495, 445],
-      [650, 445],
-      [650, 495],
-      [805, 495],
-    ],
-  },
-  {
-    from: "corridor",
-    to: "exit",
-    points: [
-      [495, 445],
-      [545, 445],
-      [545, 602],
-    ],
-  },
-  {
-    from: "laboratory",
-    to: "generator",
-    points: [
-      [805, 230],
-      [805, 495],
-    ],
-  },
-];
+
 
 function paintFacility(ctx: CanvasRenderingContext2D) {
   let seed = 9457;
@@ -691,32 +617,6 @@ function paintFacility(ctx: CanvasRenderingContext2D) {
   ctx.putImageData(image, 0, 0);
 }
 
-function routePosition(from: RoomId, to: RoomId, progress: number): Point {
-  const route = routes.find(
-    (r) => (r.from === from && r.to === to) || (r.from === to && r.to === from),
-  );
-  if (!route) {
-    const a = center(roomFor(from)),
-      b = center(roomFor(to));
-    return { x: a.x + (b.x - a.x) * progress, y: a.y + (b.y - a.y) * progress };
-  }
-  const points =
-    route.from === from ? route.points : [...route.points].reverse();
-  const lengths = points
-    .slice(1)
-    .map((p, i) => Math.hypot(p[0]! - points[i]![0]!, p[1]! - points[i]![1]!));
-  let distance = lengths.reduce((a, b) => a + b, 0) * progress;
-  for (let i = 0; i < lengths.length; i++) {
-    if (distance <= lengths[i]!) {
-      const p = points[i]!,
-        q = points[i + 1]!,
-        t = distance / lengths[i]!;
-      return { x: p[0]! + (q[0]! - p[0]!) * t, y: p[1]! + (q[1]! - p[1]!) * t };
-    }
-    distance -= lengths[i]!;
-  }
-  return center(roomFor(to));
-}
 
 export function createFacility(
   parent: HTMLElement,
@@ -873,20 +773,9 @@ export function createFacility(
     update(time: number, delta: number) {
       const state = latestState;
       const now = reducedMotion ? 0 : time * 0.001;
-      let target = state
-        ? center(roomFor(state.roomId))
-        : center(roomFor("reception"));
-      if (state?.targetRoomId && state.currentAction?.action === "move")
-        target = routePosition(
-          state.roomId,
-          state.targetRoomId,
-          state.progress,
-        );
-      const smoothing =
-        state?.status === "waiting" ? 1 : Math.min(1, delta / 120);
+      const target = state ? actorPosition(state, "sam") : center(roomFor("reception"));
       const previous = { ...this.playerPoint };
-      this.playerPoint.x += (target.x - this.playerPoint.x) * smoothing;
-      this.playerPoint.y += (target.y - this.playerPoint.y) * smoothing;
+      this.playerPoint = { ...target };
       const { x, y } = this.playerPoint;
       this.agent.setPosition(x, y);
       this.samSprite?.setPosition(x, y);
@@ -898,10 +787,9 @@ export function createFacility(
         this.killerSprite?.setVisible(killer.spawned);
         this.killerFallback.setVisible(killer.spawned && !this.killerSprite);
         this.killerAura.setVisible(killer.spawned);
-        const destination = killer.targetRoomId ? routePosition(killer.roomId, killer.targetRoomId, killer.progress) : center(roomFor(killer.roomId));
+        const destination = actorPosition(state, "killer");
         const previousKillerX = this.killerPoint.x;
-        this.killerPoint.x += (destination.x - this.killerPoint.x) * smoothing;
-        this.killerPoint.y += (destination.y - this.killerPoint.y) * smoothing;
+        this.killerPoint = { ...destination };
         this.killerSprite?.setPosition(this.killerPoint.x, this.killerPoint.y);
         if (this.killerSprite && Math.abs(this.killerPoint.x - previousKillerX) > 0.1) this.killerSprite.setFlipX(this.killerPoint.x < previousKillerX);
         this.killerFallback.setPosition(this.killerPoint.x, this.killerPoint.y);

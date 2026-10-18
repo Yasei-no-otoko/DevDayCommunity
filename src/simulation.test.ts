@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  actorPosition,
+  actorsTouching,
+  CONTACT_RADIUS,
+  routePosition,
   applyDecision,
   applyKillerDecision,
   killerDecisions,
@@ -912,4 +916,95 @@ test("Nuko is dormant until the exact keycard completion and resets absent", () 
     assert.equal(state.killer.spawned, true);
     assert.equal(createState(123).killer.spawned, false);
   }
+});
+
+
+function crossingActors() {
+  const state = createState(123);
+  state.status = "running"; state.controller = "api";
+  state.killer.spawned = true;
+  state.tibo.nextAppearanceAt = 1000;
+  assert.equal(applyDecision(state, { action: "move", target: "ward", reason: "opposing crossing" }, "api"), true);
+  state.currentAction!.elapsed = state.currentAction!.duration * 0.2;
+  state.progress = 0.2;
+  Object.assign(state.killer, { roomId: "ward", targetRoomId: "reception", progress: 0.2,
+    moveDuration: state.currentAction!.duration * 1.8 + 1 });
+  state.killer.moveElapsed = state.killer.moveDuration * 0.2;
+  return state;
+}
+
+test("opposing actors contact at body overlap on an edge before either room changes", () => {
+  const state = crossingActors();
+  const beforeSam = actorPosition(state, "sam"), beforeKiller = actorPosition(state, "killer");
+  const closingSpeed = 255 / state.currentAction!.duration + 255 / state.killer.moveDuration;
+  const expectedTime = (Math.abs(beforeSam.y - beforeKiller.y) - CONTACT_RADIUS.y) / closingSpeed;
+  assert.equal(actorsTouching(state), false);
+  tick(state, expectedTime - 0.001);
+  assert.equal(state.killer.encounterCount, 0);
+  tick(state, 0.001);
+  assert.equal(state.killer.encounterCount, 1);
+  assert.ok(Math.abs(state.killer.lastEncounterAt! - expectedTime) < 1e-7);
+  assert.equal(state.roomId, "reception");
+  assert.equal(state.killer.roomId, "ward", "room identity no longer delays visible contact");
+  assert.ok(state.fear >= 25);
+  assert.equal(actorsTouching(state), true);
+});
+
+test("shared source room cannot cause contact after the visible actors have separated", () => {
+  const state = crossingActors();
+  Object.assign(state.killer, { roomId: "reception", targetRoomId: null, progress: 0, moveElapsed: 0, moveDuration: 0 });
+  state.progress = 0.8; state.currentAction!.elapsed = state.currentAction!.duration * 0.8;
+  tick(state, 0.1);
+  assert.equal(state.roomId, state.killer.roomId);
+  assert.equal(actorsTouching(state), false);
+  assert.equal(state.killer.encounterCount, 0);
+});
+
+test("edge contact, polyline corners, fear and logs are independent of tick partitions", () => {
+  const run = (frameSize: number) => {
+    const state = createState(123); state.status = "running"; state.controller = "api";
+    state.roomId = "corridor"; state.tibo.nextAppearanceAt = 1000;
+    assert.equal(applyDecision(state, { action: "move", target: "laboratory", reason: "cross corners" }), true);
+    Object.assign(state.killer, { spawned: true, roomId: "laboratory", targetRoomId: "corridor", progress: 0,
+      moveElapsed: 0, moveDuration: state.currentAction!.duration * 1.8 + 1 });
+    while (state.elapsed < 6 - 1e-8) tick(state, Math.min(frameSize, 6 - state.elapsed));
+    return state;
+  };
+  const coarse = run(6), fine = run(1 / 120);
+  assert.equal(coarse.killer.encounterCount, 1);
+  assert.deepEqual(coarse.decisions.map((entry) => [entry.action, entry.target, entry.reason]), fine.decisions.map((entry) => [entry.action, entry.target, entry.reason]));
+  for (const field of ["elapsed", "fear", "energy", "progress"] as const) assert.ok(Math.abs(coarse[field] - fine[field]) < 1e-7, field);
+  coarse.decisions.forEach((entry, index) => assert.ok(Math.abs(entry.time - fine.decisions[index].time) < 1e-7));
+  assert.ok(Math.abs(coarse.killer.lastEncounterAt! - fine.killer.lastEncounterAt!) < 1e-7);
+  for (const [from, to] of CONNECTIONS) {
+    const a = ROOMS.find((room) => room.id === from)!, b = ROOMS.find((room) => room.id === to)!;
+    assert.deepEqual(routePosition(from, to, 0), { x: a.x + a.w / 2, y: a.y + a.h / 2 });
+    assert.deepEqual(routePosition(from, to, 1), { x: b.x + b.w / 2, y: b.y + b.h / 2 });
+  }
+});
+
+test("physical overlap respects concealment, spawn state, cooldown and frozen states", () => {
+  for (const condition of ["hidden", "unspawned", "paused", "thinking", "contained"] as const) {
+    const state = crossingActors();
+    state.roomId = "ward"; state.currentAction = null; state.targetRoomId = null; state.progress = 0;
+    Object.assign(state.killer, { roomId: "ward", targetRoomId: null, progress: 0 });
+    if (condition === "hidden") {
+      state.killer.encountered = true;
+      assert.equal(applyDecision(state, { action: "hide", target: "ward", reason: "concealed" }), true);
+    } else if (condition === "unspawned") state.killer.spawned = false;
+    else if (condition === "contained") state.status = "contained";
+    else state[condition] = true;
+    tick(state, 0.1);
+    assert.equal(state.killer.encounterCount, 0, condition);
+  }
+  const state = crossingActors();
+  state.currentAction = null; state.targetRoomId = null;
+  Object.assign(state.killer, { roomId: state.roomId, targetRoomId: null, progress: 0 });
+  tick(state, 0.01);
+  assert.equal(state.killer.encounterCount, 1);
+  tick(state, 11.98);
+  assert.equal(state.killer.encounterCount, 1);
+  tick(state, 0.01);
+  assert.equal(state.killer.encounterCount, 2);
+  assert.ok(Math.abs(state.killer.lastEncounterAt! - 12) < 1e-7);
 });

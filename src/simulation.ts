@@ -101,6 +101,140 @@ export const CONNECTIONS: [RoomId, RoomId][] = [
   ["corridor", "exit"],
   ["laboratory", "generator"],
 ];
+export const MAP_ROUTES: { from: RoomId; to: RoomId; points: number[][] }[] = [
+  {
+    from: "reception",
+    to: "corridor",
+    points: [
+      [230, 515],
+      [350, 515],
+      [350, 445],
+      [495, 445],
+    ],
+  },
+  {
+    from: "reception",
+    to: "ward",
+    points: [
+      [230, 515],
+      [230, 260],
+    ],
+  },
+  {
+    from: "ward",
+    to: "archive",
+    points: [
+      [230, 260],
+      [370, 260],
+      [370, 215],
+      [505, 215],
+    ],
+  },
+  {
+    from: "archive",
+    to: "corridor",
+    points: [
+      [505, 215],
+      [505, 445],
+    ],
+  },
+  {
+    from: "corridor",
+    to: "laboratory",
+    points: [
+      [495, 445],
+      [650, 445],
+      [650, 230],
+      [805, 230],
+    ],
+  },
+  {
+    from: "corridor",
+    to: "generator",
+    points: [
+      [495, 445],
+      [650, 445],
+      [650, 495],
+      [805, 495],
+    ],
+  },
+  {
+    from: "corridor",
+    to: "exit",
+    points: [
+      [495, 445],
+      [545, 445],
+      [545, 602],
+    ],
+  },
+  {
+    from: "laboratory",
+    to: "generator",
+    points: [
+      [805, 230],
+      [805, 495],
+    ],
+  },
+];
+export type WorldPoint = { x: number; y: number };
+/** Combined body overlap around the two upright sprite anchors, excluding the threat aura. */
+export const CONTACT_RADIUS = { x: 36, y: 65 } as const;
+function roomCenter(id: RoomId): WorldPoint {
+  const room = ROOMS.find((item) => item.id === id)!;
+  return { x: room.x + room.w / 2, y: room.y + room.h / 2 };
+}
+function pathPoints(from: RoomId, to: RoomId): number[][] {
+  const route = MAP_ROUTES.find((item) => item.from === from && item.to === to || item.from === to && item.to === from);
+  const a = roomCenter(from), b = roomCenter(to);
+  const points = route ? (route.from === from ? route.points : [...route.points].reverse()).map((point) => [...point]) : [[a.x, a.y], [b.x, b.y]];
+  // Doorway drawing coordinates may differ slightly from the room's exact center.
+  points[0] = [a.x, a.y]; points[points.length - 1] = [b.x, b.y];
+  return points;
+}
+function pathMotion(from: RoomId, to: RoomId, progress: number, rate: number) {
+  const points = pathPoints(from, to);
+  const lengths = points.slice(1).map((point, index) => Math.hypot(point[0] - points[index][0], point[1] - points[index][1]));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  let distance = Math.max(0, Math.min(1, progress)) * total;
+  for (let index = 0; index < lengths.length; index++) {
+    const length = lengths[index];
+    if (length > 0 && distance < length - 1e-8) {
+      const a = points[index], b = points[index + 1], fraction = distance / length;
+      const speed = total * rate;
+      return { position: { x: a[0] + (b[0] - a[0]) * fraction, y: a[1] + (b[1] - a[1]) * fraction },
+        velocity: { x: (b[0] - a[0]) / length * speed, y: (b[1] - a[1]) / length * speed },
+        boundary: speed > 0 ? (length - distance) / speed : Infinity };
+    }
+    distance -= length;
+  }
+  return { position: roomCenter(to), velocity: { x: 0, y: 0 }, boundary: Infinity };
+}
+export function routePosition(from: RoomId, to: RoomId, progress: number): WorldPoint {
+  return pathMotion(from, to, progress, 0).position;
+}
+function actorMotion(state: GameState, actor: "sam" | "killer") {
+  const killer = state.killer;
+  if (actor === "killer" && killer.targetRoomId) return pathMotion(killer.roomId, killer.targetRoomId, killer.progress, 1 / killer.moveDuration);
+  if (actor === "sam" && state.targetRoomId && state.currentAction?.action === "move") return pathMotion(state.roomId, state.targetRoomId, state.progress, 1 / state.currentAction.duration);
+  return { position: roomCenter(actor === "sam" ? state.roomId : killer.roomId), velocity: { x: 0, y: 0 }, boundary: Infinity };
+}
+export function actorPosition(state: GameState, actor: "sam" | "killer"): WorldPoint {
+  return actorMotion(state, actor).position;
+}
+function nextContactBoundary(state: GameState, sam: ReturnType<typeof actorMotion>, killer: ReturnType<typeof actorMotion>): number {
+  if (!state.killer.spawned || isHiding(state)) return Infinity;
+  const cooldown = (state.killer.lastEncounterAt ?? -Infinity) + 12 - state.elapsed;
+  if (cooldown > 1e-8) return cooldown;
+  const x = (sam.position.x - killer.position.x) / CONTACT_RADIUS.x, y = (sam.position.y - killer.position.y) / CONTACT_RADIUS.y;
+  const vx = (sam.velocity.x - killer.velocity.x) / CONTACT_RADIUS.x, vy = (sam.velocity.y - killer.velocity.y) / CONTACT_RADIUS.y;
+  const c = x * x + y * y - 1;
+  if (c <= 1e-6) return Infinity; // worldEvents already handled this contact.
+  const a = vx * vx + vy * vy, b = 2 * (x * vx + y * vy);
+  const discriminant = b * b - 4 * a * c;
+  if (a <= 1e-12 || discriminant < 0) return Infinity;
+  const time = (-b - Math.sqrt(Math.max(0, discriminant))) / (2 * a);
+  return time > 1e-8 ? time : Infinity;
+}
 export const SABOTAGE: Record<
   SabotageType,
   { cost: number; cooldown: number; duration: number; fear: number }
@@ -674,10 +808,14 @@ export function sabotage(
   );
   return true;
 }
+export function actorsTouching(state: GameState): boolean {
+  if (!state.killer.spawned || isHiding(state)) return false;
+  const sam = actorPosition(state, "sam"), killer = actorPosition(state, "killer");
+  return Math.hypot((sam.x - killer.x) / CONTACT_RADIUS.x, (sam.y - killer.y) / CONTACT_RADIUS.y) <= 1 + 1e-6;
+}
 function encounter(state: GameState): void {
-  if (!state.killer.spawned) return;
   const killer = state.killer;
-  if (isHiding(state) || killer.roomId !== state.roomId ||
+  if (!actorsTouching(state) ||
       (killer.lastEncounterAt !== null && state.elapsed < killer.lastEncounterAt + 12 - 1e-8)) return;
   const firstContact = !killer.encountered;
   killer.encountered = true;
@@ -820,9 +958,13 @@ export function tick(state: GameState, dt: number): void {
         .map((expiresAt) => expiresAt! - state.elapsed)
         .filter((time) => time > 1e-8),
     );
+    const samMotion = actorMotion(state, "sam"), killerMotion = actorMotion(state, "killer");
     const step = Math.min(
       remaining,
       0.1,
+      samMotion.boundary,
+      state.killer.spawned ? killerMotion.boundary : Infinity,
+      nextContactBoundary(state, samMotion, killerMotion),
       state.timeRemaining,
       nextExpiry,
       state.tibo.nextAppearanceAt - state.elapsed,
@@ -830,9 +972,6 @@ export function tick(state: GameState, dt: number): void {
         ? state.hideout.lostUntil - state.elapsed : Infinity,
       state.killer.spawned && state.killer.targetRoomId
         ? state.killer.moveDuration - state.killer.moveElapsed
-        : Infinity,
-      state.killer.spawned && !isHiding(state) && state.killer.roomId === state.roomId && state.killer.lastEncounterAt !== null
-        ? state.killer.lastEncounterAt + 12 - state.elapsed
         : Infinity,
       state.currentAction
         ? (state.currentAction.duration - state.currentAction.elapsed) / speed
@@ -850,6 +989,11 @@ export function tick(state: GameState, dt: number): void {
         delete state.locks[room.id];
     state.fear = Math.max(0, Math.min(100, state.fear + step * fearRate));
     advancePursuit(state, step);
+    if (state.currentAction) {
+      state.currentAction.elapsed += step * speed;
+      state.progress = Math.min(1, state.currentAction.elapsed / state.currentAction.duration);
+    }
+    encounter(state);
     if (state.fear >= 100 - 1e-8 || state.timeRemaining <= 0) {
       if (state.fear >= 100 - 1e-8) state.fear = 100;
       state.status = "contained";
@@ -867,11 +1011,6 @@ export function tick(state: GameState, dt: number): void {
       break;
     }
     if (state.currentAction) {
-      state.currentAction.elapsed += step * speed;
-      state.progress = Math.min(
-        1,
-        state.currentAction.elapsed / state.currentAction.duration,
-      );
       if (state.currentAction.duration - state.currentAction.elapsed <= 1e-8)
         finishAction(state);
     }
