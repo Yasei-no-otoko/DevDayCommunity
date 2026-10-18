@@ -15,6 +15,7 @@ function browserAudio(t: TestContext) {
   const contexts: FakeContext[] = [];
   const requests: string[] = [];
   const failures = new Set<string>();
+  const decodeFailures = new Set<string>();
   let fetchGate: Promise<void> | undefined;
   let resumeFailure = false;
   const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} });
@@ -54,7 +55,9 @@ function browserAudio(t: TestContext) {
     async suspend() { this.state = "suspended"; }
     async close() { this.state = "closed"; }
     async decodeAudioData(data: ArrayBuffer) {
-      return { url: new TextDecoder().decode(data), duration: 3 };
+      const url = new TextDecoder().decode(data);
+      if (decodeFailures.has(url)) throw new Error("private raw decoder detail");
+      return { url, duration: 3 };
     }
   }
   const originalContext = Object.getOwnPropertyDescriptor(globalThis, "AudioContext");
@@ -71,7 +74,7 @@ function browserAudio(t: TestContext) {
   const state = createState(123);
   state.status = "running";
   return {
-    state, contexts, requests, failures,
+    state, contexts, requests, failures, decodeFailures,
     gate(promise: Promise<void>) { fetchGate = promise; },
     failResume() { resumeFailure = true; },
     played(sample: keyof typeof AUDIO_SAMPLES) {
@@ -89,6 +92,9 @@ test("all bundled audio URLs have a nonempty local MP3 and documented provenance
     assert.match(credits, new RegExp(decodeURIComponent(url.split("/").at(-1)!).replace(/[^a-zA-Z0-9_,-]/g, "\\$&")));
   }
   assert.match(credits, /CC0/);
+  const whisperAlias = await readFile(new URL("../public/audio/whisper.mp3", import.meta.url));
+  const ghostWhisper = await readFile(new URL(`../public${AUDIO_SAMPLES.whisper}`, import.meta.url));
+  assert.deepEqual(whisperAlias, ghostWhisper, "legacy cached clients receive the same ghost cue");
 });
 
 test("audio starts off and loads only after explicit enable; one ambient loop survives repeated frames", async (t) => {
@@ -263,4 +269,37 @@ test("presentation, pause, results, mute and reset stop music without overlappin
     else audio.update(env.state, false, false);
     assert.equal(env.playing().length, 0, gate);
   }
+});
+
+
+test("failed BGM reports its name and HTTP status while loaded sounds remain playable", async (t) => {
+  const env = browserAudio(t);
+  env.failures.add(AUDIO_SAMPLES.bgm);
+  const errors: string[] = [];
+  const audio = createGameAudio({ onError: (message) => errors.push(message) });
+  t.after(() => audio.dispose());
+  assert.equal(await audio.setEnabled(true), true);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /BGM（HTTP 404）/);
+  audio.update(env.state, true, true);
+  assert.equal(env.played("bgm").length, 0);
+  assert.equal(env.played("ambience").length, 1);
+  await audio.setEnabled(false);
+  env.failures.clear();
+  assert.equal(await audio.setEnabled(true), true);
+  audio.update(env.state, true, true);
+  assert.equal(env.played("bgm").length, 1);
+  assert.equal(env.requests.filter((url) => url === AUDIO_SAMPLES.bgm).length, 2);
+});
+
+test("decode failures identify the sound without exposing raw decoder details", async (t) => {
+  const env = browserAudio(t);
+  env.decodeFailures.add(AUDIO_SAMPLES.whisper);
+  const errors: string[] = [];
+  const audio = createGameAudio({ onError: (message) => errors.push(message) });
+  t.after(() => audio.dispose());
+  assert.equal(await audio.setEnabled(true), true);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /囁き（デコード失敗）/);
+  assert.doesNotMatch(errors[0], /private raw|\/audio\//);
 });

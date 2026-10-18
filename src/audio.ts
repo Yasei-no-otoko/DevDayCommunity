@@ -2,7 +2,7 @@ import { CONNECTIONS, isHiding, type GameState, type SabotageType } from "./simu
 
 /** Bundled user-provided music and CC0 effects; see public/audio/CREDITS.txt. */
 export const AUDIO_SAMPLES = {
-  bgm: "/audio/A_dark,_suspenseful__%233-1792305773451.mp3",
+  bgm: "/audio/music.mp3",
   ambience: "/audio/ambience.mp3",
   blackout: "/audio/blackout.mp3",
   lock: "/audio/lock.mp3",
@@ -13,6 +13,10 @@ export const AUDIO_SAMPLES = {
   objective: "/audio/objective.mp3",
 } as const;
 type Sample = keyof typeof AUDIO_SAMPLES;
+const sampleNames: Record<Sample, string> = {
+  bgm: "BGM", ambience: "環境音", blackout: "停電", lock: "扉の封鎖",
+  whisper: "囁き", apparition: "怪異", footstep: "足音", support: "Tiboの支援", objective: "目標達成",
+};
 type Voice = { source: AudioBufferSourceNode; gain: GainNode };
 type Snapshot = { encounters: number; support: number; keycard: boolean; power: boolean };
 
@@ -87,22 +91,28 @@ export function createGameAudio(options: { onError?: (message: string) => void }
     const controller = new AbortController();
     loadAbort = controller;
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]);
-    const failed: Sample[] = [];
+    const failed: { sample: Sample; reason: string }[] = [];
     await Promise.all((Object.keys(AUDIO_SAMPLES) as Sample[]).map(async (sample) => {
       if (buffers.has(sample)) return;
+      let reason = "通信失敗";
       try {
         const response = await fetch(AUDIO_SAMPLES[sample], { signal });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          reason = `HTTP ${response.status}`;
+          throw new Error("Sample request failed");
+        }
+        reason = "データ取得失敗";
         const data = await response.arrayBuffer();
         if (disposed || gen !== epoch) return;
+        reason = "デコード失敗";
         const buffer = await context!.decodeAudioData(data);
         if (!disposed && gen === epoch) buffers.set(sample, buffer);
       } catch {
-        if (!controller.signal.aborted && !disposed && gen === epoch) failed.push(sample);
+        if (!controller.signal.aborted && !disposed && gen === epoch) failed.push({ sample, reason: signal.aborted ? "通信タイムアウト" : reason });
       }
     }));
     if (failed.length && !disposed && gen === epoch) {
-      options.onError?.("一部の音を読み込めませんでした。音をオフにしてからオンにすると再試行できます。");
+      options.onError?.(`音を読み込めませんでした：${failed.map(({ sample, reason }) => `${sampleNames[sample]}（${reason}）`).join("、")}。音をオフにしてからオンにすると再試行できます。`);
     }
   }
   async function setEnabled(value: boolean): Promise<boolean> {

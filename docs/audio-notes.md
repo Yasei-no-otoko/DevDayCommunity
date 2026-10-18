@@ -42,6 +42,10 @@
 
 ## 提供BGMのループ（2026-10-18追加）
 
-ユーザー提供の `A_dark,_suspenseful__#3-1792305773451.mp3`（15.680秒、ステレオ48kHz、377,901 bytes）をBGMに使用します。既存のCC0効果音とは出典を区別し、ファイル名の `#` をURLでは `%23` として扱います。MP3を改変せず配信し、Web Audioの `loop=true` で繰り返します。
+ユーザー提供の `music.mp3`（元ファイル名 `A_dark,_suspenseful__#3-1792305773451.mp3`、15.680秒、ステレオ48kHz、377,901 bytes）をBGMに使用します。既存のCC0効果音とは出典を区別し、ユーザーのリネームに合わせ、配信URLは `/audio/music.mp3` に統一します。MP3を改変せず配信し、Web Audioの `loop=true` で繰り返します。
 
 [MDNのloop](https://developer.mozilla.org/en-US/docs/Web/API/AudioBufferSourceNode/loop)と[AudioContext.resume](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext/resume)を実装前に確認しました。音設定は初期オン、実際のAudioContext作成・再開は開始クリックから行い、操作前の自動再生は試みません。API応答待ち中はBGMの同じループを維持し、効果音は止めます。一時停止・映像・dialog・非表示・終了・ミュート・reset・disposeではBGMも停止します。上記の初期オフは過去版の記録です。
+
+公開音声のブラウザー診断では、現行の効果音8点と元名のBGMはHTTP200でデコードでき、旧URL `whisper.mp3` だけが404でした。開いたままの旧クライアントでも読み込めるよう、このURLに同じ `whisper-ghost.mp3` の互換コピーを保持します。BGMのユーザーによるリネーム後は参照コード・クレジットもmusic.mp3へ更新します。
+
+修正版の実ブラウザー検証では、実際のWeb Audio OfflineAudioContextで18秒をレンダリングし、15.680秒の曲の一周後（17〜17.5秒）にもRMS 0.02895048の音声出力を確認しました。全9音源が取得・デコードでき、音源エラーは0件です。これは音声エンジンの出力確認で、実スピーカーの聴取評価ではありません。

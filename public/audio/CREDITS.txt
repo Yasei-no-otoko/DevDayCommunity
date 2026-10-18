@@ -3,7 +3,7 @@ BLACKSITE audio credits and edits
 
 The sound effects and ambience listed below are edited MP3 exports of CC0 originals. The separately supplied BGM has its own provenance; no CC0 license is asserted for it. The full source archive license for Kenney RPG Audio is reproduced at the end. CC0 legal text: https://creativecommons.org/publicdomain/zero/1.0/
 
-A_dark,_suspenseful__#3-1792305773451.mp3
+music.mp3 (renamed from A_dark,_suspenseful__#3-1792305773451.mp3)
 - Source: original MP3 supplied by the project owner for the game BGM.
 - License: not provided / unverified; this file is not represented as CC0.
 - Edit: supplied file retained without transcoding; 15.680 seconds, stereo 48 kHz.
@@ -83,3 +83,5 @@ Request:  http://request.kenney.nl
 
 Follow on Twitter for updates:
 @KenneyNL
+
+Compatibility path: whisper.mp3 is the same ghost voice recording as whisper-ghost.mp3, retained for already-open older clients.
