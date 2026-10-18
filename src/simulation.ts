@@ -678,7 +678,7 @@ function encounter(state: GameState): void {
   killer.encountered = true;
   killer.encounterCount += 1;
   killer.lastEncounterAt = state.elapsed;
-  const fearIncrease = firstContact ? 25 + Math.floor(random(state) * 11) : 5;
+  const fearIncrease = 25 + Math.floor(random(state) * 11);
   state.fear = Math.max(state.fear, Math.min(99, state.fear + fearIncrease));
   state.outcome = "ぬこぬこさんがサムに接触。恐怖100に達すると実験終了。";
   log(state, {
