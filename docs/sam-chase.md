@@ -46,6 +46,28 @@
 5. **Sam map**: use the generated Sam full body as the outfit and identity reference; compact 2D game sprite viewed from a high overhead angle of about 65 degrees, walking diagonally down-right, visible crown and shoulders with foreshortened body, readable silhouette at small size, complete body on a square transparent canvas, no text or ground plane.
 6. **ぬこぬこさん map**: use the provided catgirl image as the identity reference; retain brown hair, golden eyes, cat ears, tail and black-gold outfit, compact chase pose viewed from the same high overhead angle, facing diagonally down-left, complete body on a square transparent canvas, no text or ground plane.
 
+## オープニング映像の先頭フレーム
+
+2026-10-18の依頼「知らない廃病院の受付で目覚めるサム・アルトマン」を、写実的なホラー映像の最初のカットとしてbuilt-in `image_gen`で生成しました。待合椅子に身体を預けたサム、無人の受付カウンター、暗い廊下を一画面に収め、続く動画で顔を上げて周囲を見回せる構図です。施設と主人公の設定は[BLACKSITE 開発ノート](https://chatgpt.com/space/page_6ad364e1b6988191bc1b900799453a36)を参照しました。
+
+動画制作の入力として、生成時のPNGを無加工で[public/blacksite-opening-frame.png](../public/blacksite-opening-frame.png)に保存しています。1672×941px（約16:9）、2,082,429 bytes、背景不透過です。実画像の目視とPNGのデコードを確認し、元ファイルとのSHA-256一致を確認しました。
+
+検証: 既存55テストと差分の空白チェックが成功しました。追跡中のソースと今回の2ファイルを取り出した環境でWorkerビルドが成功し、配信物のPNGも元データと一致しました。通常の作業ディレクトリでのビルドは、Git管理外の別プロジェクト `blacksite2/vite.config.ts` が親のTypeScript対象に含まれるため失敗します。
+
+生成に使用したプロンプト全文:
+
+```text
+Use case: photorealistic-natural
+Asset type: BLACKSITE horror-game opening video, first frame, a single full-bleed cinematic still in wide 16:9 landscape.
+Primary request: 知らない廃病院の受付で目覚めるサム・アルトマン — Sam Altman waking up at the reception of an unfamiliar abandoned hospital.
+Scene/backdrop: The long-abandoned reception waiting area of ST. ORISON INSTITUTE. A clearly recognizable reception counter and unstaffed service window, worn waiting chairs, peeling walls, aged tile floor, a dark corridor receding beyond the counter. Restrained realistic decay, no fantastical architecture.
+Subject: Sam Altman, naturally recognizable facial likeness, short brown hair, clean-shaven, wearing a simple dark navy jacket over a navy crewneck and dark trousers. He is alone, slumped in an old hospital waiting chair near the counter, shoulders slightly rounded and head only beginning to lift. His eyelids have just opened; his face shows sleepiness and quiet disorientation, as if he has no idea how he arrived here. His face must be clearly visible in a three-quarter frontal view. Natural hands resting on chair armrest and lap, natural anatomy.
+Style/medium: Photorealistic cinematic psychological-horror film still, grounded live-action cinematography, detailed natural skin and worn fabric textures, subtle 35mm film grain.
+Composition/framing: Medium-wide 35mm shot from seated eye level, slightly three-quarter frontal. Sam is the immediate focal point while the reception counter and empty hospital environment remain unmistakably visible in the same composition. Leave comfortable space above his head and into the room so a subsequent video can begin with a slow head lift, glance around, and subtle camera push-in. A single quiet opening moment rather than a completed frightened reaction.
+Lighting/mood: Faint cold window light reveals his eyes and face; weak sickly green fluorescent light in the reception mixes with the blue-gray shadows. Dark but readable midtones, pale desaturated colors, oppressive stillness, restrained dread, realistic motivated lighting.
+Constraints: One adult subject only. No killer, ghosts, extra people, blood, wounds, restraints, weapons, or gore. No invented narrative props. No text, legible signs, subtitles, titles, logos, UI, timestamp, watermark, borders, or letterboxing. No collage, no multiple panels. Landscape 16:9, full image composition, realistic human likeness and anatomy.
+```
+
 ## SDK参照
 
 Phaserのバージョン指定なしの最新資料は4.1.0ですが、本プロジェクトは3.90.0を維持します。[Image](https://docs.phaser.io/api-documentation/3.90.0/class/gameobjects-image)と[LoaderPlugin](https://docs.phaser.io/api-documentation/3.90.0/class/loader-loaderplugin)の版別資料でpreload→create、textureの確認、静止画の表示を確認しました。画像が読み込めない場合は既存の図形表示を使います。部屋選択のzoneとNPC画像は分離し、NPC自体は入力を奪いません。
