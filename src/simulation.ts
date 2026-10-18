@@ -167,6 +167,7 @@ export interface HideoutState {
 }
 export interface GameState {
   status: "waiting" | "running" | "escaped" | "contained";
+  terminalReason: "contact" | "fear" | "deadline" | "escaped" | null;
   paused: boolean;
   controller: "local" | "api";
   thinking: boolean;
@@ -207,6 +208,7 @@ function random(state: { randomSeed: number }): number {
 export function createState(seed = 0x53414d): GameState {
   const state: GameState = {
     status: "waiting",
+    terminalReason: null,
     paused: false,
     controller: "local",
     thinking: false,
@@ -452,12 +454,22 @@ export function applyDecision(
   let opensExit = false;
   switch (decision.action) {
     case "move":
-      if (
-        !adjacent(state.roomId, decision.target) ||
-        locked(state, state.roomId) ||
-        locked(state, decision.target)
-      )
-        return false;
+      if (!adjacent(state.roomId, decision.target)) return false;
+      {
+        const blockedExit = locked(state, state.roomId);
+        const blockedEntry = locked(state, decision.target);
+        if (blockedExit || blockedEntry) {
+          const sourceName = ROOMS.find((room) => room.id === state.roomId)!.name;
+          const targetName = ROOMS.find((room) => room.id === decision.target)!.name;
+          const reason = blockedExit && blockedEntry
+            ? `扉の封鎖：${sourceName}からの退室と${targetName}への入室はできない。`
+            : blockedExit
+              ? `扉の封鎖：${sourceName}から退室できない。`
+              : `扉の封鎖：${targetName}へ入室できない。`;
+          log(state, { ...decision, reason }, "system");
+          return false;
+        }
+      }
       duration = movementDuration(state.roomId, decision.target);
       break;
     case "search":
@@ -562,6 +574,7 @@ function finishAction(state: GameState): void {
       state.power
     ) {
       state.status = "escaped";
+      state.terminalReason = "escaped";
       state.outcome = "被験者が脱出した。封じ込め失敗。";
     }
   } else if (action.action === "hide") {
@@ -598,7 +611,7 @@ export function sabotage(
   const interruptedMove =
     type === "lock" &&
     state.currentAction?.action === "move" &&
-    state.targetRoomId === targetRoom;
+    (state.roomId === targetRoom || state.targetRoomId === targetRoom);
   const fearBefore = state.fear;
   state.energy -= rule.cost;
   state.cooldowns[type] = state.elapsed + rule.cooldown;
@@ -649,7 +662,9 @@ export function sabotage(
     {
       action: "wait",
       target: targetRoom,
-      reason: `${{ blackout: "停電", lock: "扉の封鎖", whisper: "囁き", apparition: "幻影" }[type]}が発生：${ROOMS.find((r) => r.id === targetRoom)!.name}。${interruptedHide ? "サムが隠れ場所から飛び出し、追跡が再開した。" : ""}`,
+      reason: type === "lock"
+        ? `${ROOMS.find((r) => r.id === targetRoom)!.name}の扉を封鎖。${targetRoom === state.roomId ? "サムを室内に閉じ込め、退室を阻止。" : "サムの入室を阻止。"}`
+        : `${{ blackout: "停電", whisper: "囁き", apparition: "幻影", lock: "扉の封鎖" }[type]}が発生：${ROOMS.find((r) => r.id === targetRoom)!.name}。${interruptedHide ? "サムが隠れ場所から飛び出し、追跡が再開した。" : ""}`,
     },
     "system",
   );
@@ -659,16 +674,22 @@ function encounter(state: GameState): void {
   const killer = state.killer;
   if (isHiding(state) || killer.roomId !== state.roomId ||
       (killer.lastEncounterAt !== null && state.elapsed < killer.lastEncounterAt + 12 - 1e-8)) return;
-  const firstContact = !killer.encountered;
   killer.encountered = true;
   killer.encounterCount += 1;
   killer.lastEncounterAt = state.elapsed;
   state.fear = Math.min(99, state.fear + 5);
-  if (firstContact && state.currentAction && state.currentAction.action !== "move") {
-    state.currentAction = null;
-    state.targetRoomId = null;
-    state.progress = 0;
-  }
+  state.status = "contained";
+  state.terminalReason = "contact";
+  state.outcome = "ぬこぬこさんがサムに接触した。被験者ロスト。";
+  state.currentAction = null;
+  state.targetRoomId = null;
+  state.progress = 0;
+  state.thinking = false;
+  log(state, {
+    action: "wait",
+    target: state.roomId,
+    reason: "ぬこぬこさんがサムに接触。被験者ロスト、実験終了。",
+  }, "system");
 }
 function worldEvents(state: GameState): void {
   if (state.elapsed >= state.tibo.nextAppearanceAt - 1e-8) {
@@ -716,6 +737,7 @@ export function tick(state: GameState, dt: number): void {
   let remaining = Math.min(dt, 360);
   while (remaining > 0.000001 && state.status === "running") {
     worldEvents(state);
+    if (state.status !== "running") break;
     if (!state.currentAction && state.controller === "local" && !state.thinking)
       applyDecision(state, chooseLocalAction(state));
     beginPursuit(state);
@@ -779,6 +801,7 @@ export function tick(state: GameState, dt: number): void {
     if (state.fear >= 100 - 1e-8 || state.timeRemaining <= 0) {
       if (state.fear >= 100 - 1e-8) state.fear = 100;
       state.status = "contained";
+      state.terminalReason = state.fear >= 100 ? "fear" : "deadline";
       state.outcome =
         state.fear >= 100
           ? "被験者は恐怖に屈した。封じ込め成功。"
