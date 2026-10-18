@@ -5,7 +5,7 @@ export const AUDIO_SAMPLES = {
   ambience: "/audio/ambience.mp3",
   blackout: "/audio/blackout.mp3",
   lock: "/audio/lock.mp3",
-  whisper: "/audio/whisper.mp3",
+  whisper: "/audio/whisper-ghost.mp3",
   apparition: "/audio/apparition.mp3",
   footstep: "/audio/footstep.mp3",
   support: "/audio/support.mp3",

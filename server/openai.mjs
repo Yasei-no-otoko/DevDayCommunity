@@ -55,7 +55,7 @@ export function createOpenAIAdapter({
     }
 
     if (stream) return { response, requestId };
-    const data = response.status === 204 ? undefined : await response.json();
+    const data = response.status === 204 || method === "DELETE" ? undefined : await response.json();
     return { data, requestId };
   }
 
@@ -82,24 +82,39 @@ export function createOpenAIAdapter({
         { stream: true },
       );
 
-      const result = await readAgentEventStream(response, requestId);
-      if (!result.sessionId) {
-        throw new OpenAIStreamError(
-          "Agents API completed without a session ID.",
-          requestId,
-        );
-      }
-      if (!result.terminalSuccess) {
-        throw new OpenAIStreamError(
-          "Agents API stream ended before a successful turn completion.",
-          requestId,
-        );
-      }
-      if (!result.outputText.trim()) {
-        throw new OpenAIStreamError(
-          "Agents API completed without narrative text.",
-          requestId,
-        );
+      let createdSessionId;
+      let result;
+      try {
+        result = await readAgentEventStream(response, requestId, (id) => { createdSessionId = id; });
+        if (!result.sessionId) {
+          throw new OpenAIStreamError(
+            "Agents API completed without a session ID.",
+            requestId,
+          );
+        }
+        if (!result.terminalSuccess) {
+          throw new OpenAIStreamError(
+            "Agents API stream ended before a successful turn completion.",
+            requestId,
+          );
+        }
+        if (!result.outputText.trim()) {
+          throw new OpenAIStreamError(
+            "Agents API completed without narrative text.",
+            requestId,
+          );
+        }
+      } catch (error) {
+        // A failed stream may already have created provider state, before a
+        // browser capability can be issued. The adapter owns this cleanup.
+        if (createdSessionId) {
+          try {
+            await request(`/agents/sessions/${encodeURIComponent(createdSessionId)}`, undefined, { method: "DELETE" });
+          } catch {
+            throw new OpenAIStreamError("Agents API failed and its provider session could not be deleted.", requestId);
+          }
+        }
+        throw error;
       }
       return { ...result, model: AGENT_MODEL, requestId };
     },
@@ -184,7 +199,7 @@ async function readProviderError(response) {
   return detail.slice(0, 500);
 }
 
-async function readAgentEventStream(response, requestId) {
+async function readAgentEventStream(response, requestId, onSession) {
   if (!response.body)
     throw new OpenAIStreamError(
       "Agents API returned an empty stream.",
@@ -219,6 +234,7 @@ async function readAgentEventStream(response, requestId) {
     if (typeof event.session?.id === "string") sessionId = event.session.id;
     if (typeof event.id === "string" && event.object === "agent.session")
       sessionId = event.id;
+    if (sessionId) onSession?.(sessionId);
 
     const type = typeof event.type === "string" ? event.type : "";
     if (type === "agent.session.turn.completed") {

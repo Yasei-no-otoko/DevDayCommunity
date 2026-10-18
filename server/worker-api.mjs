@@ -13,6 +13,7 @@ export function createWorkerApiHandler({
   adapter = createOpenAIAdapter({ apiKey }),
   now = Date.now,
   sessionTtlMs = SESSION_TTL_MS,
+  release,
 } = {}) {
   const configured = typeof apiKey === "string" && apiKey.trim().length > 0;
   let signingKey;
@@ -53,6 +54,12 @@ export function createWorkerApiHandler({
     try {
       const url = new URL(request.url);
       if (!isSameOriginRequest(request, url)) throw new HttpError(403, "forbidden_origin", "Requests must come from this Site.");
+      if (request.method === "GET" && url.pathname === "/api/release") {
+        if (!release?.projectId || !/^[a-f0-9]{40}$/.test(release.commitSha ?? "")) {
+          throw new HttpError(503, "release_unavailable", "Build this Site from a committed source checkout.");
+        }
+        return json(200, { projectId: release.projectId, commitSha: release.commitSha });
+      }
       // Public visitors may try the local controller; live operations require
       // the identity supplied by Sites after ChatGPT sign-in.
       // Never accept identity from query parameters or request bodies.

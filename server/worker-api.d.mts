@@ -6,6 +6,8 @@ export interface WorkerApiOptions {
   adapter?: ReturnType<typeof createOpenAIAdapter>;
   now?: () => number;
   sessionTtlMs?: number;
+  /** Public build-time identity, independent of request headers and runtime secrets. */
+  release?: { projectId: string; commitSha: string };
 }
 
 /** Handles authenticated Web API requests using stateless session capabilities. */

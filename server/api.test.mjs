@@ -19,6 +19,38 @@ function sseResponse(
   });
 }
 
+test("a created Agents session is deleted when its stream fails before a browser capability exists", async () => {
+  const calls = [];
+  const adapter = createOpenAIAdapter({
+    apiKey: "test-key",
+    fetchImpl: async (url, options) => {
+      calls.push({ url, method: options.method });
+      if (options.method === "DELETE") return new Response(null, { status: 204 });
+      return sseResponse([
+        { type: "agent.session.created", session_id: "sess_unfinished" },
+        { type: "agent.session.turn.output_text.done", text: "Incomplete plan" },
+      ]);
+    },
+  });
+  await assert.rejects(adapter.createSession({ facilityDescription: "Facility", strategicPlan: "Escape" }), /before a successful turn completion/);
+  assert.deepEqual(calls.map((call) => call.method), ["POST", "DELETE"]);
+  assert.equal(calls[1].url, "https://api.openai.com/v1/agents/sessions/sess_unfinished");
+});
+
+test("Agents cleanup failure is explicit and retains the original provider request identifier", async () => {
+  const adapter = createOpenAIAdapter({
+    apiKey: "test-key",
+    fetchImpl: async (_url, options) => options.method === "DELETE"
+      ? Response.json({ error: { message: "Unavailable" } }, { status: 503 })
+      : sseResponse([
+        { type: "agent.session.created", session_id: "sess_failed" },
+        { type: "agent.session.turn.failed", error: { message: "Turn failed" } },
+      ]),
+  });
+  await assert.rejects(adapter.createSession({ facilityDescription: "Facility", strategicPlan: "Escape" }), (error) =>
+    error instanceof OpenAIStreamError && /could not be deleted/.test(error.message) && error.requestId === "req_agents_123");
+});
+
 test("Agents session creates a no-environment strategy session and collects terminal result", async () => {
   let sent;
   const adapter = createOpenAIAdapter({
