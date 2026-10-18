@@ -746,6 +746,7 @@ export function createFacility(
     private killerFallback!: Phaser.GameObjects.Container;
     private killerAura!: Phaser.GameObjects.Graphics;
     private dust!: Phaser.GameObjects.Graphics;
+    private lockLabels = new Map<RoomId, Phaser.GameObjects.Text>();
     private dustParticles = Array.from({ length: 26 }, (_, i) => ({
       x: (i * 173.7) % W,
       y: (i * 93.3) % H,
@@ -767,6 +768,24 @@ export function createFacility(
       this.selectionGraphics = this.add.graphics();
       this.effectGraphics = this.add.graphics();
       this.dust = this.add.graphics();
+      for (const room of ROOMS) {
+        const label = this.add.text(
+          room.x + room.w / 2,
+          room.y + room.h / 2,
+          "ENTRY BLOCKED",
+          {
+            align: "center",
+            backgroundColor: "#351713",
+            color: "#ffd0ba",
+            fontFamily: "monospace",
+            fontSize: "9px",
+            padding: { x: 5, y: 4 },
+            stroke: "#8c3026",
+            strokeThickness: 1,
+          },
+        ).setOrigin(0.5).setDepth(10).setVisible(false);
+        this.lockLabels.set(room.id, label);
+      }
       // Survivor: coat, pack, shoulders and a cool illuminated head.
       const shadow = this.add.ellipse(1, 4, 19, 12, 0x000604, 0.8);
       const coat = this.add.graphics();
@@ -999,7 +1018,11 @@ export function createFacility(
           fx.fillRect(0, 95, W, H - 95);
         }
         for (const r of ROOMS) {
-          if ((state.locks[r.id] ?? 0) > state.elapsed) {
+          const sealed = (state.locks[r.id] ?? 0) > state.elapsed;
+          const lockLabel = this.lockLabels.get(r.id);
+          lockLabel?.setText(state.roomId === r.id ? "SAM INSIDE\nEXIT BLOCKED" : "ENTRY BLOCKED");
+          lockLabel?.setVisible(sealed);
+          if (sealed) {
             fx.fillStyle(0xd67459, 0.9);
             fx.fillRoundedRect(r.x + r.w - 23, r.y + 11, 10, 9, 1);
             fx.lineStyle(1.5, 0xd67459, 0.9);
