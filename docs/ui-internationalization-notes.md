@@ -1,0 +1,26 @@
+# UI language and playback notes (checked 2026-10-20)
+
+This note records the official browser and Phaser contracts relevant to Japanese/English UI selection, 16:9 video layout, and starting an Agents session during the opening sequence. OpenAI integration here uses REST `fetch`, not an OpenAI SDK.
+
+## Official references
+
+- [Phaser 3.90.0 ScaleManager](https://docs.phaser.io/api-documentation/3.90.0/class/scale-scalemanager): the canvas uses a fixed game size scaled with CSS to the dimensions of its parent. `FIT` constrains the full game canvas to the available parent space while preserving its aspect ratio. Parent sizing and CSS determine the available area.
+- [Navigator.language (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/language) and [Navigator.languages (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/languages): language tags are BCP 47 strings; the first preferred language is generally the value of `navigator.language`. Normalize case and match the primary subtag (`ja`) so variants such as `ja-JP` select Japanese; the requested two-language policy maps all other values to English.
+- [CSS aspect ratios (MDN)](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Box_sizing/Aspect_ratios): `aspect-ratio: 16 / 9` defines a preferred box ratio when one dimension is automatic. Bound both width and height to the viewport/container; use `object-fit: contain` where all source video content must remain visible.
+- [HTML video (MDN)](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/video): inline video behavior and intrinsic dimensions are browser media behavior; CSS can size the player inside the page.
+- [Fullscreen API (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen): fullscreen is an explicit asynchronous browser request requiring transient user activation and can fail. Avoid calling it when the desired experience is page-contained playback; simply size the video overlay to the viewport.
+- [Agents API overview](https://developers.openai.com/api/docs/guides/agents-api/overview), [quickstart](https://developers.openai.com/api/docs/guides/agents-api/quickstart), [sessions](https://developers.openai.com/api/docs/guides/agents-api/sessions), and [events](https://developers.openai.com/api/docs/guides/agents-api/sessions/events): session creation begins an agent turn and streaming reports progress; require root `agent.session.turn.completed` for success. `idle` alone is not success. Sessions may be deleted with the documented DELETE endpoint.
+
+## Differences from current code
+
+- `src/main.ts` currently contains Japanese-only UI text. It has no language selection layer or `lang` update.
+- `src/facility.ts` already uses Phaser 3.90.0 `Scale.FIT` and parent-driven centering, so the map canvas preserves its fixed game ratio. Any page-level layout changes should keep a definite parent size and avoid overriding Phaser's canvas dimensions.
+- `src/main.ts` exposes a custom fullscreen button and calls `requestFullscreen()` on the root. Video presentation is managed separately by `src/cinematics.ts`; inspect that module's DOM/CSS before removing any fullscreen behavior to preserve its sequencing and close handling.
+- The current opening flow in `startPause()` calls `startLive()` only after `cinematics.play()` resolves (around lines 531-541). Starting the API while the opening video plays requires launching `startLive()` at the opening gesture and retaining an opening/video gate so game ticks and decisions do not begin before the video completes.
+- `startLive()` snapshots `generation`; if reset/disposal races session creation, a late result is deleted through `closeSession(result.sessionId, result.sessionToken)`. `reset()` increments generation and closes any already assigned session. `dispose()` increments generation and does the same. Decisions have generation checks and `apiPending` guards; reset clears pending decision references, while in-flight fetches themselves are not aborted. This stale-result cleanup is a useful invariant to retain.
+
+## Lifecycle implementation guidance
+
+Run the opening visual and `startLive()` concurrently from the original user gesture, but gate simulation/decision advancement until both the opening sequence and the initial Agents result are ready. Keep pause state independent: if the player pauses during the opening, resolving either asynchronous branch must not silently resume gameplay. On reset or unmount, invalidate the generation immediately; any session returned afterward must be deleted with its returned capability. Do not discard an in-flight session-create promise without preserving that late-result cleanup. If abort signals are added, treat browser abort as cancellation only; it does not establish provider session deletion, so cleanup still needs a provider DELETE when an ID is known.
+
+For video, retain the page overlay and fit the player within viewport bounds at 16:9. Do not request the Fullscreen API or invoke browser/OS-level fullscreen controls. Remove any shark loading fallback only after identifying whether it is a real asset or browser/video poster and ensuring failed playback still has a neutral, accessible status surface.

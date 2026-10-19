@@ -1984,66 +1984,43 @@ dialog .start-button {
   }
 }
 
-/* Cutscenes fill the visible viewport without cropping the source frame. */
+/* Cutscenes stay in the browser viewport with an uncropped 16:9 frame. */
 .cinematic {
   position: fixed;
   inset: 0;
   z-index: 2147483647;
   width: 100%;
-  height: 100%;
+  height: 100dvh;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: #000;
   color: #fff;
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+.cinematic-stage {
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+  display: grid;
   place-items: center;
 }
-.cinematic-video { width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.cinematic-frame {
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+.cinematic-video { display: block; width: 100%; height: 100%; object-fit: contain; }
 .cinematic-controls {
-  position: absolute;
-  right: max(20px, env(safe-area-inset-right));
-  bottom: max(20px, env(safe-area-inset-bottom));
-  left: max(20px, env(safe-area-inset-left));
+  padding: 12px 20px 20px;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  max-height: 40dvh;
+  overflow: auto;
 }
 .cinematic-controls button { padding: 10px 16px; background: #151515; color: #fff; border: 1px solid #777; cursor: pointer; }
 .cinematic-controls button:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 .cinematic-status { background: #000c; font-size: 13px; }
-
-/* A fresh page opens the supplied title art; the experiment starts separately. */
-.title-screen {
-  position:fixed;
-  inset:0;
-  width:100vw;
-  height:100dvh;
-  max-width:none;
-  max-height:none;
-  margin:0;
-  padding:0;
-  border:0;
-  overflow:hidden;
-  background:#000;
-  color:#fff;
-}
-.title-screen[open] { display:grid; place-items:center; }
-.title-screen::backdrop { background:#000; }
-.title-screen>img { width:100%; height:100%; min-height:0; object-fit:contain; }
-.title-skip {
-  position:absolute;
-  right:max(24px,env(safe-area-inset-right));
-  bottom:max(24px,env(safe-area-inset-bottom));
-  min-width:112px;
-  min-height:46px;
-  padding:10px 24px;
-  border:1px solid #ddd;
-  border-radius:3px;
-  background:#111e;
-  color:#fff;
-  font-size:15px;
-  font-weight:600;
-  line-height:1.4;
-  cursor:pointer;
-}
-.title-skip:focus-visible { outline:3px solid #fff; outline-offset:5px; }

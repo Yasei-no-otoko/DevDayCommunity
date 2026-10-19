@@ -1,5 +1,6 @@
 "use client";
 
+import { t, getLocale } from "../src/i18n";
 import { useEffect, useRef, useState } from "react";
 
 export default function GameClient() {
@@ -7,6 +8,7 @@ export default function GameClient() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    document.documentElement.lang = getLocale();
     let cancelled = false;
     let dispose: (() => void) | undefined;
     let mount: ((root: HTMLElement) => () => void) | undefined;
@@ -39,7 +41,7 @@ export default function GameClient() {
   return (
     <>
       <div id="app" ref={root} />
-      {error && <p role="alert">実験を読み込めませんでした。ページを再読み込みしてください。</p>}
+      {error && <p role="alert">{t("実験を読み込めませんでした。ページを再読み込みしてください。")}</p>}
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { t, getLocale, localizeElement } from "./i18n";
 import { legalDecisions, createSessionRequest, createDecisionRequest, createKillerDecisionRequest, roomName } from "./live-contract";
 import { createCinematics } from "./cinematics";
 import { createGameAudio } from "./audio";
@@ -77,6 +78,7 @@ const interventions: {
 const actionNames = { move: "移動", search: "探索", restore: "電源復旧", unlock: "解錠", wait: "深呼吸", hide: "隠れる" };
 
 export function mountBlacksite(root: HTMLElement): () => void {
+  document.documentElement.lang = getLocale();
   let disposed = false;
   const events = new AbortController();
   type BrowserEventMap = HTMLElementEventMap & DocumentEventMap & WindowEventMap;
@@ -110,26 +112,6 @@ export function mountBlacksite(root: HTMLElement): () => void {
     root.querySelector<T>(`#${id}`)!;
   const dialogs = Array.from(root.querySelectorAll<HTMLDialogElement>("dialog"));
   const dialogOpeners = new WeakMap<HTMLDialogElement, HTMLElement>();
-  const titleDialog = document.createElement("dialog");
-  titleDialog.className = "title-screen";
-  titleDialog.setAttribute("aria-label", "BLACKSITE タイトル");
-  titleDialog.innerHTML = '<img src="/blacksite-title.png" alt="BLACKSITE タイトル"><button type="button" class="title-skip">スキップ</button>';
-  const titleSkip = titleDialog.querySelector<HTMLButtonElement>("button")!;
-  function closeTitle() {
-    if (!titleDialog.open) return;
-    titleDialog.close();
-    titleDialog.remove();
-    if (!disposed) $("start").focus({ preventScroll: true });
-  }
-  listen(titleSkip, "click", closeTitle);
-  listen(titleDialog, "cancel", (event) => { event.preventDefault(); closeTitle(); });
-  document.addEventListener("keydown", (event) => {
-    if (!titleDialog.open) return;
-    event.stopImmediatePropagation();
-    if (event.key === "Escape") { event.preventDefault(); closeTitle(); }
-    else if (event.key === "Tab") { event.preventDefault(); titleSkip.focus({ preventScroll: true }); }
-    else if (event.target !== titleSkip) event.preventDefault();
-  }, { capture: true, signal: events.signal });
   function openDialog(dialog: HTMLDialogElement, opener?: HTMLElement) {
     if (disposed || cinematics.active || dialog.open) return;
     tiboWasVisible = false;
@@ -229,7 +211,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     const movie = cinematicQueue.shift()!;
     const gen = generation;
     eventMoviePending = true;
-    void cinematics.play(movie.src, movie.label, !soundOn, false, movie.notice).then((advance) => {
+    void cinematics.play(movie.src, movie.label, !soundOn, movie.notice).then((advance) => {
       if (disposed || generation !== gen) return;
       eventMoviePending = false;
       if (!advance) cinematicQueue = [];
@@ -303,7 +285,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     );
   function toast(message: string, kind: "default" | "capture" = "default") {
     if (disposed) return;
-    $("toast").textContent = message;
+    $("toast").textContent = t(message);
     $("toast").classList.toggle("capture-notice", kind === "capture");
     $("toast").classList.add("visible");
     clearTimeout(toastTimer);
@@ -329,6 +311,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     $("audio").setAttribute("aria-pressed", String(soundOn));
     $("audio").setAttribute("aria-busy", String(soundLoading));
     $("audio").title = soundLoading ? "音を読み込み中 · もう一度押すとオフ" : label;
+    localizeElement($("audio"));
   }
   async function setAudioEnabled(value: boolean) {
     const revision = ++soundRevision;
@@ -347,6 +330,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     void setAudioEnabled(!soundOn);
   }
   function setText(id: string, value: string) {
+    value = t(value);
     if ($(id).textContent !== value) $(id).textContent = value;
   }
   function recordApiError(error: unknown) {
@@ -405,7 +389,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     apiError = "";
     render();
     try {
-      const result = await request("/api/session", createSessionRequest());
+      const result = await request("/api/session", createSessionRequest(getLocale()));
 
       if (gen !== generation) {
         closeSession(result.sessionId, result.sessionToken);
@@ -531,14 +515,17 @@ export function mountBlacksite(root: HTMLElement): () => void {
       cinematics.prepare(["/video/spawn.mp4", "/video/contact.mp4"]);
       const gen = generation;
       for (const dialog of dialogs) if (dialog.open) dialog.close();
-      void cinematics.play("/video/op.mp4", "オープニング", !soundOn, true).then((advance) => {
+      const opening = cinematics.play("/video/op.mp4", t("オープニング"), !soundOn);
+      // Overlap strategy generation with playback. Both cinematics.active and
+      // state.thinking gate ticks/Decisions, whichever operation finishes first.
+      if (live) void startLive();
+      void opening.then((advance) => {
         if (!advance || disposed || generation !== gen) return;
-        if (live) void startLive();
-        else {
+        if (!live) {
           state.status = "running";
           state.controller = "local";
-          render();
         }
+        render();
       });
       return;
     } else {
@@ -857,6 +844,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
       }
     }
     facility.update(state, selectedRoom);
+    localizeElement(root);
   }
   listen($("close-watchback"), "click", closeWatchback);
   listen($("start"), "click", startPause);
@@ -894,6 +882,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
     $("fullscreen").setAttribute("aria-pressed", String(active));
     $("fullscreen").setAttribute("aria-label", active ? "全画面表示を終了" : "ゲームを全画面表示");
     $("fullscreen").querySelector("span")!.textContent = active ? "解除" : "全画面";
+    localizeElement($("fullscreen"));
   }
   listen($("fullscreen"), "click", () => {
     if (document.fullscreenElement === root) {
@@ -1031,8 +1020,6 @@ export function mountBlacksite(root: HTMLElement): () => void {
     cancelAnimationFrame(frameId);
     clearTimeout(toastTimer);
     events.abort();
-    if (titleDialog.open) titleDialog.close();
-    titleDialog.remove();
     if (document.fullscreenElement === root) void document.exitFullscreen().catch(() => {});
     closeSession();
     sessionId = "";
@@ -1052,8 +1039,5 @@ export function mountBlacksite(root: HTMLElement): () => void {
   renderAudioButton();
   render();
   frameId = requestAnimationFrame(frame);
-  root.append(titleDialog);
-  titleDialog.showModal();
-  titleSkip.focus({ preventScroll: true });
   return dispose;
 }

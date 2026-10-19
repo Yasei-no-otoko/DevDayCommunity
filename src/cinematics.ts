@@ -1,8 +1,9 @@
+import { t } from "./i18n";
+
 /** Presentation-only playback: cancellation never advances a game run. */
 export function createCinematics(root: HTMLElement, onActiveChange: () => void) {
   let current: { cancel: () => void; video: HTMLVideoElement } | null = null;
   let disposed = false;
-  let fullscreenRevision = 0;
   const prepared = new Map<string, HTMLVideoElement>();
   function clearPrepared() {
     for (const video of prepared.values()) {
@@ -25,7 +26,7 @@ export function createCinematics(root: HTMLElement, onActiveChange: () => void) 
         video.load();
       }
     },
-    play(src: string, label: string, muted: boolean, fullscreen = false, notice = ""): Promise<boolean> {
+    play(src: string, label: string, muted: boolean, notice = ""): Promise<boolean> {
       if (disposed) return Promise.resolve(false);
       current?.cancel();
       return new Promise((resolve) => {
@@ -34,8 +35,8 @@ export function createCinematics(root: HTMLElement, onActiveChange: () => void) 
         layer.className = 'cinematic';
         layer.setAttribute('role', 'dialog');
         layer.setAttribute('aria-modal', 'true');
-        layer.setAttribute('aria-label', label);
-        layer.innerHTML = '<video class="cinematic-video" playsinline preload="auto"></video><div class="cinematic-controls"><span class="cinematic-status" role="status"></span><button class="cinematic-play" hidden>映像を再生</button><button class="cinematic-skip">スキップ</button></div>';
+        layer.setAttribute('aria-label', t(label));
+        layer.innerHTML = '<div class="cinematic-stage"><div class="cinematic-frame"><video class="cinematic-video" playsinline preload="auto"></video></div></div><div class="cinematic-controls"><span class="cinematic-status" role="status"></span><button class="cinematic-play" hidden></button><button class="cinematic-skip"></button></div>';
         const placeholder = layer.querySelector('video')!;
         const video = prepared.get(src) ?? placeholder;
         prepared.delete(src);
@@ -46,7 +47,9 @@ export function createCinematics(root: HTMLElement, onActiveChange: () => void) 
         const play = layer.querySelector<HTMLButtonElement>('.cinematic-play')!;
         const skip = layer.querySelector<HTMLButtonElement>('.cinematic-skip')!;
         const status = layer.querySelector<HTMLElement>('.cinematic-status')!;
-        status.textContent = notice;
+        play.textContent = t('映像を再生');
+        skip.textContent = t('スキップ');
+        status.textContent = t(notice);
         if (video.getAttribute('src') !== src) video.src = src;
         video.muted = muted;
         video.loop = false;
@@ -56,13 +59,6 @@ export function createCinematics(root: HTMLElement, onActiveChange: () => void) 
         for (const child of background) child.inert = true;
         root.append(layer);
         let finished = false;
-        let ownsFullscreen = false;
-        const leaveFullscreen = () => {
-          if (ownsFullscreen && document.fullscreenElement === root) {
-            ownsFullscreen = false;
-            void document.exitFullscreen().catch(() => {});
-          }
-        };
         const finish = (advance: boolean) => {
           if (finished) return;
           finished = true;
@@ -73,7 +69,6 @@ export function createCinematics(root: HTMLElement, onActiveChange: () => void) 
           layer.remove();
           background.forEach((child, i) => { child.inert = inertBefore[i]; });
           current = null;
-          leaveFullscreen();
           if (opener?.isConnected && !disposed) opener.focus({ preventScroll: true });
           onActiveChange();
           resolve(advance);
@@ -82,16 +77,16 @@ export function createCinematics(root: HTMLElement, onActiveChange: () => void) 
         const retry = () => {
           if (finished || document.hidden) return;
           play.hidden = true;
-          status.textContent = notice;
+          status.textContent = t(notice);
           void video.play().catch(() => {
             if (finished) return;
             play.hidden = false;
-            status.textContent = `${notice}${notice ? ' ' : ''}再生ボタンを押すか、スキップして続けてください。`;
+            status.textContent = `${t(notice)}${notice ? ' ' : ''}${t('再生ボタンを押すか、スキップして続けてください。')}`;
           });
         };
         video.addEventListener('ended', () => finish(true), { signal: events.signal });
         video.addEventListener('error', () => {
-          status.textContent = `${notice}${notice ? ' ' : ''}映像を読み込めませんでした。スキップして続けられます。`;
+          status.textContent = `${t(notice)}${notice ? ' ' : ''}${t('映像を読み込めませんでした。スキップして続けられます。')}`;
         }, { signal: events.signal });
         play.addEventListener('click', retry, { signal: events.signal });
         skip.addEventListener('click', () => finish(true), { signal: events.signal });
@@ -107,21 +102,6 @@ export function createCinematics(root: HTMLElement, onActiveChange: () => void) 
           if (document.hidden) video.pause();
           else retry();
         }, { signal: events.signal });
-        document.addEventListener('fullscreenchange', () => {
-          if (ownsFullscreen && document.fullscreenElement !== root) {
-            ownsFullscreen = false;
-            finish(true);
-          }
-        }, { signal: events.signal });
-        if (fullscreen && !document.fullscreenElement && root.requestFullscreen && document.fullscreenEnabled !== false) {
-          // Invoke synchronously in the start click; automatic endings have no user activation.
-          const revision = ++fullscreenRevision;
-          void root.requestFullscreen().then(() => {
-            if (revision !== fullscreenRevision) return;
-            ownsFullscreen = document.fullscreenElement === root;
-            if (finished) leaveFullscreen();
-          }).catch(() => {});
-        }
         skip.focus({ preventScroll: true });
         onActiveChange();
         retry();

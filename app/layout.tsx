@@ -5,14 +5,14 @@ import "../src/style.css";
 export const metadata: Metadata = {
   title: "BLACKSITE — The Escape Experiment",
   description:
-    "AIが操作するサム・アルトマンの脱出を妨害する180秒のホラー実験。追尾するぬこぬこさんと、使用間隔をリセットするTiboが登場。",
+    "A 180-second horror experiment. Haunt the facility, obstruct AI-controlled Sam Altman, and contain his escape.",
 };
 
 export const viewport: Viewport = { themeColor: "#090e0e" };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="ja">
+    <html lang="en" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

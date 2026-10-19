@@ -162,6 +162,9 @@ test("shared contract uses game validation and limits killer knowledge to encoun
   state.killer.encountered = true;
   assert.equal(createDecisionRequest(state, "strategy", choices, "id", "token").snapshot.knownKiller.roomId, state.killer.roomId);
   assert.match(createSessionRequest().strategicPlan, /Sam Altman/);
+  assert.match(createSessionRequest("ja").strategicPlan, /In Japanese/);
+  assert.match(createSessionRequest("en").strategicPlan, /In English/);
+  assert.doesNotMatch(createSessionRequest("en").strategicPlan, /In Japanese/);
 });
 
 const browserTarget = { browser: "Google Chrome", windowId: 123, tabId: 456 };

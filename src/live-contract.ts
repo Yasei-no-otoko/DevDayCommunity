@@ -54,7 +54,7 @@ export function legalDecisions(state: GameState): Decision[] {
   });
 }
 
-export function createSessionRequest() {
+export function createSessionRequest(locale: "ja" | "en" = "ja") {
   return {
     facilityDescription: JSON.stringify({
       rooms: ROOMS.map(({ id, clue }) => ({ id, clue })),
@@ -65,7 +65,7 @@ export function createSessionRequest() {
       hideoutRules: "Room contact with Nuko Nuko marks Sam as caught but does not immediately end the run. Sam can keep moving and working; fear reaching 100 after contact ends the run with Sam captured.",
     }),
     strategicPlan:
-      "You control the fictional game avatar Sam Altman. In Japanese, give a concise 2-sentence escape plan grounded in this facility. You cannot know the killer location before the first contact. Avoid Nuko Nuko because contact marks you as caught and raises fear; keep moving and complete the keycard, power and exit objectives. The run ends in capture failure if fear reaches 100 after contact.",
+      `You control the fictional game avatar Sam Altman. In ${locale === "ja" ? "Japanese" : "English"}, give a concise 2-sentence escape plan grounded in this facility. You cannot know the killer location before the first contact. Avoid Nuko Nuko because contact marks you as caught and raises fear; keep moving and complete the keycard, power and exit objectives. The run ends in capture failure if fear reaches 100 after contact.`,
   };
 }
 
