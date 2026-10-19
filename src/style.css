@@ -1999,6 +1999,10 @@ html:lang(en) #app {
   html:lang(en) .briefing > span {
     min-width: 0;
   }
+  html:lang(en) .sabotage-detail {
+    white-space: normal;
+    max-width: 100%;
+  }
 }
 @media (min-width: 1151px) and (max-width: 1599px) {
   html:lang(en) .header { gap: 12px; }
@@ -2017,11 +2021,6 @@ html:lang(en) #app {
     line-height: 20px;
   }
   html:lang(en) .objectives > div:not(.objectives-title) > span { white-space: nowrap; }
-  html:lang(en) .sabotage-detail {
-    font-size: 10px;
-    white-space: normal;
-    max-width: 100%;
-  }
 }
 
 /* Cutscenes stay in the browser viewport with an uncropped 16:9 frame. */

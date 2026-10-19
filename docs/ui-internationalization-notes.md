@@ -11,7 +11,7 @@ This note records the official browser and Phaser contracts relevant to Japanese
 - [Fullscreen API (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen): fullscreen is an explicit asynchronous browser request requiring transient user activation and can fail. Avoid calling it when the desired experience is page-contained playback; simply size the video overlay to the viewport.
 - [Agents API overview](https://developers.openai.com/api/docs/guides/agents-api/overview), [quickstart](https://developers.openai.com/api/docs/guides/agents-api/quickstart), [sessions](https://developers.openai.com/api/docs/guides/agents-api/sessions), and [events](https://developers.openai.com/api/docs/guides/agents-api/sessions/events): session creation begins an agent turn and streaming reports progress; require root `agent.session.turn.completed` for success. `idle` alone is not success. Sessions may be deleted with the documented DELETE endpoint.
 
-## Differences from current code
+## Pre-change observations
 
 - `src/main.ts` currently contains Japanese-only UI text. It has no language selection layer or `lang` update.
 - `src/facility.ts` already uses Phaser 3.90.0 `Scale.FIT` and parent-driven centering, so the map canvas preserves its fixed game ratio. Any page-level layout changes should keep a definite parent size and avoid overriding Phaser's canvas dimensions.
@@ -24,3 +24,18 @@ This note records the official browser and Phaser contracts relevant to Japanese
 Run the opening visual and `startLive()` concurrently from the original user gesture, but gate simulation/decision advancement until both the opening sequence and the initial Agents result are ready. Keep pause state independent: if the player pauses during the opening, resolving either asynchronous branch must not silently resume gameplay. On reset or unmount, invalidate the generation immediately; any session returned afterward must be deleted with its returned capability. Do not discard an in-flight session-create promise without preserving that late-result cleanup. If abort signals are added, treat browser abort as cancellation only; it does not establish provider session deletion, so cleanup still needs a provider DELETE when an ID is known.
 
 For video, retain the page overlay and fit the player within viewport bounds at 16:9. Do not request the Fullscreen API or invoke browser/OS-level fullscreen controls. Remove any shark loading fallback only after identifying whether it is a real asset or browser/video poster and ensuring failed playback still has a neutral, accessible status surface.
+
+## Implemented behavior and local verification
+
+The Japanese browser preference selects Japanese; English and other preferences select English. Legacy UA locale detection is a fallback when browser language fields are absent. UI copy is centralized in `src/i18n.ts`; simulation IDs and rules remain unchanged. Phaser writes translated labels directly on every frame. Session creation requests the strategy in the selected language. The shark title dialog and its unused image were removed.
+
+Starting a live experiment now launches the opening and session request together. Existing cinematic and thinking gates prevent game time and Decisions from advancing until both are ready. Cinematics use an inline, contained 16:9 viewport frame with separate controls and never request native fullscreen. The explicit game fullscreen button remains user controlled.
+
+On 2026-10-20, `npm test` passed all 105 tests and the production build passed. A Vivaldi browser harness loaded the real client modules and styles, intercepted only local API routes with dummy responses, and recorded 59 passing checks, including:
+
+- `en-US` and `fr-FR` render English; `ja-JP` renders Japanese. Text and accessible-copy scans, including labels sampled after Phaser frames, found no Japanese residue in English UI.
+- English header, briefing, panels and subject text fit actual 1280×720 and 1920×1080 iframe viewports, including clipping ancestors.
+- Video frame ratios were 1.7778 at 1280×720, 1920×1080 and 390×844 for all three locales. Desktop frame sizes were 1146.7×645 and 1786.7×1005 respectively, reserving space for controls. No cinematic fullscreen calls occurred.
+- Session creation starts while the opening exists. Movie-first and plan-first completion each wait for the other gate. Reset ignores the late plan and deletes that unique dummy session. A failed create returns to waiting; a simulated hidden document pauses a loaded playing video and preserves the game's pause after the response.
+
+These are local UI and mocked lifecycle checks. This change has not been deployed or exercised through the hosted real API gate; generated plan language and production demo readiness remain unverified until deployment, `npm run test:live`, `npm run demo:ready`, and the public browser checks succeed.
