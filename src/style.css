@@ -1984,6 +1984,46 @@ dialog .start-button {
   }
 }
 
+/* English copy wraps inside the fixed desktop briefing row. */
+html:lang(en) #app {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1151px) {
+  html:lang(en) .briefing {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 1.6fr) minmax(0, 1.6fr);
+    white-space: normal;
+    line-height: 1.2;
+    column-gap: 12px;
+  }
+  html:lang(en) .briefing > span {
+    min-width: 0;
+  }
+}
+@media (min-width: 1151px) and (max-width: 1599px) {
+  html:lang(en) .header { gap: 12px; }
+  html:lang(en) .experiment-bar { gap: 8px; }
+  html:lang(en) .header-right { gap: 6px; }
+  html:lang(en) .controller-menu select { max-width: 190px; }
+  html:lang(en) .subject-panel > .section-title {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  html:lang(en) .subject-panel > .section-title > .micro { font-size: 10px; }
+  html:lang(en) .fear-header > span { font-size: 13px; white-space: nowrap; }
+  html:lang(en) .objectives { gap: 4px; }
+  html:lang(en) .objectives > div:not(.objectives-title) {
+    font-size: 12px;
+    line-height: 20px;
+  }
+  html:lang(en) .objectives > div:not(.objectives-title) > span { white-space: nowrap; }
+  html:lang(en) .sabotage-detail {
+    font-size: 10px;
+    white-space: normal;
+    max-width: 100%;
+  }
+}
+
 /* Cutscenes stay in the browser viewport with an uncropped 16:9 frame. */
 .cinematic {
   position: fixed;

@@ -25,6 +25,10 @@ test("display localization covers composed labels, actions and logs without muta
   assert.equal(target, "Target: Reception · Sam is here · Door sealed (Sam cannot leave)");
   assert.equal(t("再使用まで 12秒", "en"), "Ready in 12s");
   assert.equal(t("追跡 ON", "en"), "Follow ON");
+  for (const [ja, en] of [["サム", "Sam"], ["サム · 隠れている", "Sam · Hiding"], ["ぬこぬこさん · 接近", "Nukonuko-san · Approaching"], ["移動先：非常用電源室", "Destination: Generator room"]]) {
+    assert.equal(t(ja, "en"), en);
+    assert.equal(t(ja, "ja"), ja);
+  }
   assert.equal(t("受付に停電。この部屋に干渉が続きます。", "en"), "Reception · Blackout. The interference remains active in this room.");
   assert.equal(t("恐怖 +17", "ja"), "恐怖 +17");
   assert.equal(t("request_123 / reception", "en"), "request_123 / reception");

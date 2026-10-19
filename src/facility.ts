@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import * as Phaser from "phaser";
 import { ROOMS, MAP_ROUTES as routes, routePosition, actorPosition, isHiding, type GameState, type RoomId } from "./simulation";
 
@@ -632,10 +633,10 @@ export function createFacility(
   const roomLabels = ROOMS.map((room) => {
     const label = document.createElement("span");
     label.className = "facility-room-label";
-    label.textContent = `${room.label} ${roomNames[room.id]}`;
+    label.textContent = t(`${room.label} ${roomNames[room.id]}`);
     if (room.id === "ward") {
       const refuge = document.createElement("small");
-      refuge.textContent = "隠れ場所";
+      refuge.textContent = t("隠れ場所");
       label.append(refuge);
     }
     label.style.left = `${(room.x + 6) / W * 100}%`;
@@ -645,14 +646,14 @@ export function createFacility(
   });
   const agentLabel = document.createElement("span");
   agentLabel.className = "facility-agent-label";
-  agentLabel.textContent = "サム";
+  agentLabel.textContent = t("サム");
   labels.append(agentLabel);
   const destinationLabel = document.createElement("span");
   destinationLabel.className = "facility-destination-label hidden";
   labels.append(destinationLabel);
   const killerLabel = document.createElement("span");
   killerLabel.className = "facility-killer-label";
-  killerLabel.textContent = "ぬこぬこさん";
+  killerLabel.textContent = t("ぬこぬこさん");
   killerLabel.hidden = true;
   labels.append(killerLabel);
   let latestState: GameState | undefined;
@@ -804,11 +805,11 @@ export function createFacility(
         killerLabel.style.left = `${this.killerPoint.x / W * 100}%`;
         killerLabel.style.top = `${this.killerPoint.y / H * 100}%`;
         killerLabel.classList.toggle("approaching", approaching);
-        killerLabel.textContent = approaching ? "ぬこぬこさん · 接近" : "ぬこぬこさん";
+        killerLabel.textContent = t(approaching ? "ぬこぬこさん · 接近" : "ぬこぬこさん");
       }
       agentLabel.style.left = `${x / W * 100}%`;
       agentLabel.style.top = `${y / H * 100}%`;
-      agentLabel.textContent = state && isHiding(state) ? "サム · 隠れている" : "サム";
+      agentLabel.textContent = t(state && isHiding(state) ? "サム · 隠れている" : "サム");
       const moving =
         Math.hypot(
           this.playerPoint.x - previous.x,
@@ -1008,7 +1009,7 @@ export function createFacility(
       destinationLabel.classList.toggle("hidden", !moving);
       if (moving && state.currentAction) {
         const destination = center(roomFor(state.currentAction.target));
-        destinationLabel.textContent = `移動先：${roomNames[state.currentAction.target]}`;
+        destinationLabel.textContent = t(`移動先：${roomNames[state.currentAction.target]}`);
         destinationLabel.style.left = `${destination.x / W * 100}%`;
         destinationLabel.style.top = `${destination.y / H * 100}%`;
       }
