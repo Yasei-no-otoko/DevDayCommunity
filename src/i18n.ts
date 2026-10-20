@@ -75,6 +75,7 @@ const english: Readonly<Record<string, string>> = {
   "すぐに試せます": "Ready to play",
   "結果を表示 ↗": "View result ↗",
   "サインイン": "Sign in",
+  "ChatGPTでサインイン": "Sign in with ChatGPT",
   "あなたの干渉": "YOUR INTERFERENCE",
   "干渉する部屋": "TARGET ROOM",
   "追跡 ON": "Follow ON",
