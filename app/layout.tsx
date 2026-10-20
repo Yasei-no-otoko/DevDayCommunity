@@ -8,7 +8,12 @@ export const metadata: Metadata = {
     "A 180-second horror experiment. Haunt the facility, obstruct AI-controlled Sam Altman, and contain his escape.",
 };
 
-export const viewport: Viewport = { themeColor: "#090e0e" };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#090c10",
+};
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
