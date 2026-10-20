@@ -1910,10 +1910,10 @@ dialog .start-button {
   .map-coordinate #killer-status { display:inline; margin-left:7px; font-size:9px; }
   .map-legend { top:20px; bottom:auto; padding:2px 4px; font-size:8px; line-height:12px; gap:8px; }
   .map-legend>span:last-child { display:none; }
-  #app .facility-room-label { top:min(var(--room-top),calc(100% - 46px)); display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; width:var(--room-width); min-width:44px; min-height:44px; padding:3px 4px; font-size:10px; line-height:13px; white-space:normal; background:linear-gradient(180deg,#0f141ae8 0,#0f141ac9 22px,#0f141a00 36px); border:1px solid #8b8c785c; border-left:2px solid var(--line-strong); }
-  #app .facility-room-label.selected { border-color:var(--accent-bright); background:linear-gradient(180deg,#2a3029f5 0,#2a3029c9 22px,#2a302900 38px); color:var(--accent-bright); }
+  #app .facility-room-label { top:min(var(--room-top),calc(100% - 46px)); display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; width:var(--room-width); min-width:44px; min-height:44px; padding:3px 4px; font-size:10px; line-height:13px; white-space:normal; appearance:none; background:none; border:0; box-shadow:none; }
+  #app .facility-room-label.selected { background:none; border:0; box-shadow:none; color:var(--accent-bright); }
   .facility-room-name-full,.facility-room-label>small { display:none; }
-  .facility-room-name-compact { display:block; }
+  .facility-room-name-compact { display:block; text-shadow:0 1px 2px #000,0 0 3px #0009; }
   .facility-agent-label { font-size:10px; transform:translate(-50%,10px); }
   .facility-killer-label { font-size:9px; transform:translate(-50%,-7px); }
   .facility-destination-label { display:none; }
