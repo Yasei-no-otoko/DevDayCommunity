@@ -33,3 +33,9 @@ The current general-purpose Vinext guide describes platform initialization and d
 The latest gameplay merge removed required peer and optional platform entries from `package-lock.json` without changing dependency declarations. A clean `npm run install:ci` failed with `EUSAGE`, including missing `webpack@5.112.0` and its dependencies. Restored the complete lockfile from the audio integration commit before repeating clean installation, tests, and build.
 
 The integrated source passed a fresh `npm run install:ci`, all 64 tests, and `npm run build`. All nine audio-directory files (eight MP3s and credits) matched the client output by SHA-256. Chrome against the built Worker on a dedicated local port rendered the Phaser map and new rules, enabled audio through the speaker button, started local play, displayed entry-blocking feedback after a lock interrupted movement, and stopped the timer and audio on pause; resuming restored both. Anonymous `/api/status` returned the expected sign-in-required response. This pass does not verify hosted live Agents/Decisions gameplay.
+
+## Primary sign-in action (2026-10-20)
+
+The current Sites identity contract is supplied in the installed Sites skill's `references/identity-and-secrets.md`: hosted sign-in must use a normal anchor with `target="_top"`; dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, and `/callback`. The existing server helper builds `/signin-with-chatgpt?return_to=%2F` for this game. No separate OAuth client, callback, fetch, or client router is needed.
+
+The anonymous API-mode primary button was previously disabled and its handler only displayed guidance. It now stays actionable and activates the same top-level platform sign-in link. Signed-in API users retain the experiment start/pause controls; unavailable API configuration still blocks starting a run. Local play remains available without signing in.
