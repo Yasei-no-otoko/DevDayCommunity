@@ -61,6 +61,10 @@ npm run build
 
 同日13:38–13:40 JSTには、本番サイトの実APIモードで脱出まで完走しました。Agents APIは201、Decisions APIは9回すべて200で、鍵の回収・電源復旧・避難口の解錠、妨害操作、停止中に届いた判断の保留と再開を確認しました。この検証ではAPI応答やフレーム更新をモックしていません。[実通信の受信記録](docs/openai-api-notes.md#production-site-live-verification-on-2026-10-18)を参照してください。スマートフォン実機は未検証です。
 
+## SNS投稿素材
+
+[SNS投稿素材と投稿文](docs/social-media-kit.md)に、YouTube・Instagram向けの映像とFacebook・LinkedIn向けの投稿文、収録元と検証範囲をまとめています。
+
 ## 開発フロー
 
 作業ブランチで変更をcommitし、テスト・ビルド・画面確認後にmainへ統合します。Sitesのソースリポジトリと公開GitHubは同じcommitを同期します。生成物、依存ライブラリ、環境変数、認証情報はcommitしません。API仕様は変更前に公式資料を再確認し、差分をdocsに残します。
