@@ -625,22 +625,34 @@ export function createFacility(
 ) {
   const labels = document.createElement("div");
   labels.className = "facility-labels";
-  labels.setAttribute("aria-hidden", "true");
+  labels.setAttribute("role", "group");
+  labels.setAttribute("aria-label", t("干渉する部屋"));
   const roomNames: Record<RoomId, string> = {
     reception: "受付", corridor: "中央ホール", ward: "隔離病棟",
     archive: "書庫", laboratory: "研究室", generator: "非常用電源室", exit: "避難口",
   };
   const roomLabels = ROOMS.map((room) => {
-    const label = document.createElement("span");
+    const label = document.createElement("button");
+    label.type = "button";
     label.className = "facility-room-label";
-    label.textContent = t(`${room.label} ${roomNames[room.id]}`);
+    label.setAttribute("aria-label", t(`${room.label} ${roomNames[room.id]}`));
+    label.setAttribute("aria-pressed", "false");
+    label.addEventListener("click", () => onRoomSelect(room.id));
+    const fullName = document.createElement("span");
+    fullName.className = "facility-room-name-full";
+    fullName.textContent = t(`${room.label} ${roomNames[room.id]}`);
+    const compactName = document.createElement("span");
+    compactName.className = "facility-room-name-compact";
+    compactName.textContent = t(room.id === "generator" ? "電源室" : room.id === "ward" ? "病棟" : roomNames[room.id]);
+    label.append(fullName, compactName);
     if (room.id === "ward") {
       const refuge = document.createElement("small");
       refuge.textContent = t("隠れ場所");
       label.append(refuge);
     }
     label.style.left = `${(room.x + 6) / W * 100}%`;
-    label.style.top = `${(room.y + 7) / H * 100}%`;
+    label.style.setProperty("--room-top", `${(room.y + 7) / H * 100}%`);
+    label.style.setProperty("--room-width", `${(room.w - 12) / W * 100}%`);
     labels.append(label);
     return { room, label };
   });
@@ -685,6 +697,7 @@ export function createFacility(
       this.load.image("nuko-map", "/nuko-map.webp");
     }
     create() {
+      this.game.canvas.setAttribute("aria-hidden", "true");
       const texture = this.textures.createCanvas("facility-plan", W, H)!;
       paintFacility(texture.getContext());
       texture.refresh();
@@ -1015,6 +1028,7 @@ export function createFacility(
       }
       for (const { room, label } of roomLabels) {
         label.classList.toggle("selected", room.id === selectedRoom);
+        label.setAttribute("aria-pressed", String(room.id === selectedRoom));
       }
     },
     destroy() {

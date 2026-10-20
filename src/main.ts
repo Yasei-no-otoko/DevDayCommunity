@@ -38,6 +38,7 @@ const svg = (name: string, size = 20) => {
     reset: '<path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/>',
     arrow: '<path d="M4 12h16m-6-6 6 6-6 6"/>',
     signal: '<path d="M4 18v3m5-8v8m5-13v13m5-18v18"/>',
+    settings: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="9" cy="18" r="2" fill="currentColor"/>',
     key: '<circle cx="8" cy="8" r="5"/><path d="m12 12 9 9m-4-4 3-3m-6 0 3-3"/>',
     close: '<path d="m5 5 14 14M19 5 5 19"/>',
   };
@@ -93,15 +94,17 @@ export function mountBlacksite(root: HTMLElement): () => void {
     <header class="header">
       <a class="brand" href="/" aria-label="BLACKSITE ホーム"><span class="brand-symbol">${svg("ghost", 24)}</span><span>BLACKSITE<small>THE ESCAPE EXPERIMENT</small></span></a>
       <div class="experiment-bar"><div class="timer"><span class="micro">残り時間</span><b id="timer">03:00</b></div><div class="small-stat"><span class="micro">干渉</span><b id="interventions">00</b></div><button class="start-button" id="start">${svg("play", 15)}<span>実験を開始</span></button><button class="icon-button" id="reset" aria-label="実験をリセット" title="リセット (R)">${svg("reset", 18)}</button></div>
-      <div class="header-right"><div class="controller-menu"><label for="mode">対戦モード</label><select id="mode"><option value="api">OpenAI 実API</option><option value="local">ローカル体験</option></select></div><button class="text-button" id="open-api">API詳細</button><button class="icon-button" id="audio" aria-label="音をオン" aria-pressed="false" title="音をオン">${svg("mute")}</button><button class="icon-button" id="help" aria-label="遊び方" title="遊び方">${svg("help")}</button><button class="text-button fullscreen-button" id="fullscreen" aria-label="ゲームを全画面表示" aria-pressed="false">⛶ <span>全画面</span></button></div>
+      <button class="icon-button mobile-settings-button" id="open-settings" aria-label="コンソールの設定" aria-haspopup="dialog">${svg("settings")}</button>
+      <div class="header-right" id="console-settings"><div class="controller-menu"><label for="mode">対戦モード</label><select id="mode"><option value="api">OpenAI 実API</option><option value="local">ローカル体験</option></select></div><button class="text-button" id="open-api">API詳細</button><button class="icon-button" id="audio" aria-label="音をオン" aria-pressed="false" title="音をオン">${svg("mute")}</button><button class="icon-button" id="help" aria-label="遊び方" title="遊び方">${svg("help")}</button><button class="text-button fullscreen-button" id="fullscreen" aria-label="ゲームを全画面表示" aria-pressed="false">⛶ <span>全画面</span></button></div>
     </header>
     <section class="briefing" aria-label="実験のルール"><span><b>あなたは怪異。</b> AIを閉じ込めろ。</span><span><b>勝利</b> 恐怖100・180秒阻止（接触後も続行）</span><span><b>操作</b> 開始 → 部屋選択 → 1〜4で干渉</span><span class="briefing-loss">鍵・電源を確保したAIが脱出すると敗北</span></section>
     <main class="console" aria-label="施設監視コンソール">
       <section class="subject-panel" id="subject-panel"><span id="damage-badge" class="damage-badge" role="status" aria-live="polite" aria-atomic="true" hidden></span><div class="section-title"><span>AI 監視</span><span class="micro">脱出するAI</span></div><div class="subject-identity"><div class="subject-avatar"><span></span><img id="subject-portrait" src="/sam-altman.webp" alt="" aria-hidden="true">${svg("signal", 13)}</div><div class="subject-name"><h2>SAM <small>サム・アルトマン</small></h2><span id="subject-status"><i></i> 実験の開始待ち</span></div><span class="subject-id">AI</span></div><div class="fear-header"><span>恐怖レベル <small>/ FEAR</small></span><strong><span id="fear">08</span><small>/100</small></strong></div><div class="fear-track"><div id="fear-fill"></div><span></span><span></span><span></span><span></span></div><div class="fear-labels"><span>CALM</span><span>UNSTABLE</span><span>PANIC</span></div><div class="thought"><div class="thought-heading"><span>${svg("signal", 14)} 選択された行動</span><button class="text-button" id="open-thought">全文 ↗</button></div><p id="thought">サム・アルトマンの脱出開始を待っています。</p><div class="action-progress"><i id="action-progress"></i></div><span id="action-label">WAITING FOR EXPERIMENT</span></div><div class="objectives"><div class="objectives-title">脱出までの3つの目標</div><div id="objective-key">${svg("key", 14)}<span>キーカードを回収</span><i></i></div><div id="objective-power">${svg("bolt", 14)}<span>非常用電源を復旧</span><i></i></div><div id="objective-exit">${svg("arrow", 14)}<span>施設から脱出</span><i></i></div></div></section>
-      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="img" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div class="tibo-copy"><span>TIBO <b>SUPPORT</b></span><strong>エネルギー・使用間隔リセット</strong><small>4つの干渉を再使用可能</small><em>エネルギー100に回復</em></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
+      <section class="facility-panel" aria-label="施設マップ"><div class="panel-heading"><span><i class="tiny-square"></i> 施設マップ <span class="subtle">/ B1</span></span><span class="camera-tag"><i></i> LIVE · CAM_07</span></div><div class="map-area"><div id="facility" role="group" aria-label="7部屋の施設マップ。部屋をクリックして干渉対象を選択"></div><div id="watchback" class="watchback hidden" role="region" aria-labelledby="watchback-title"><div class="watchback-silhouette" aria-hidden="true"><span></span></div><img class="watchback-image" src="/sam-camera.webp" alt="" aria-hidden="true"><div class="watchback-grain" aria-hidden="true"></div><div class="watchback-top"><span><i></i> CAM_07 / SIGNAL RETURN</span><span>SAM / AI</span></div><div class="watchback-reticle" aria-hidden="true"></div><div class="watchback-copy"><p id="watchback-title">監視対象が、端末を見ている。</p><strong id="watchback-line"></strong><div class="watchback-record"><span>施設演出 · 干渉記録</span><p id="watchback-record"></p></div><button class="text-button" id="close-watchback">マップに戻る <span>ESC</span></button></div></div><div class="map-coordinate">N ↑ <span id="killer-status">ぬこぬこさん · 未遭遇</span></div><div id="tibo-banner" class="tibo-banner hidden" role="status" aria-live="polite"><span class="tibo-fallback" aria-hidden="true">T</span><img id="tibo-image" src="/tibo.webp" alt="" aria-hidden="true"><div class="tibo-copy"><span>TIBO <b>SUPPORT</b></span><strong>エネルギー・使用間隔リセット</strong><small>4つの干渉を再使用可能</small><em>エネルギー100に回復</em></div></div><div class="map-legend"><span><i class="agent-dot"></i> サム</span><span><i class="killer-dot"></i> ぬこぬこさん</span><span><i class="effect-dot"></i> 干渉中</span><span>⌖ クリックで部屋選択</span></div></div><div class="runtime-status"><span class="connection"><i></i><span id="connection">ローカル体験</span></span><span class="status-kicker" id="mode-label">ローカル体験</span><strong id="runtime-title" role="status" aria-live="polite">すぐに試せます</strong><button class="text-button hidden" id="open-result">結果を表示 ↗</button><a id="sign-in" class="sign-in hidden" href="/signin-with-chatgpt?return_to=%2F">サインイン ${svg("arrow",14)}</a></div></section>
       <section class="interference-panel"><div class="section-title"><span>あなたの干渉</span><span class="live-red">THE ENTITY</span></div><div class="room-bar"><div class="room-selection"><span class="room-number" id="room-number">01</span><div><label class="micro" for="room-select">干渉する部屋</label><select id="room-select" aria-describedby="target-summary room-hint">${ROOMS.map((room) => `<option value="${room.id}">${room.label} ${roomName(room.id)}</option>`).join("")}</select></div></div><button class="text-button active" id="follow" aria-pressed="true">${svg("eye", 16)}<span>追跡 ON</span></button><p id="target-summary" class="target-summary">対象：受付 · サムが在室</p><span class="room-hint sr-only" id="room-hint">サムを自動追跡</span></div><div class="energy-row"><span>${svg("bolt", 14)} エネルギー</span><strong><span id="energy">100</span><small>/100</small></strong></div><div class="energy-track"><i id="energy-fill"></i></div><div class="sabotage-grid">${interventions.map((item, i) => `<button class="sabotage" data-type="${item.type}" title="${item.detail}"><span class="sabotage-top"><span class="sabotage-icon">${svg(item.icon, 36)}</span><span class="cost">${svg("bolt", 10)} ${SABOTAGE[item.type].cost}</span></span><strong>${item.name}<kbd>${i + 1}</kbd></strong><span class="sabotage-detail">持続${SABOTAGE[item.type].duration}秒 · CD ${SABOTAGE[item.type].cooldown}秒</span><span class="sabotage-state" id="sabotage-state-${item.type}">実験を開始してください</span></button>`).join("")}</div><p id="interference-feedback" class="interference-feedback" role="status" aria-live="polite"></p></section>
     </main>
     <section class="event-console" aria-label="最新の記録"><div class="log-heading"><span><i></i> ACTIVITY LOG</span><button class="text-button" id="toggle-log">全記録 ↗</button></div><div id="activity-log"></div></section>
+    <dialog id="settings-dialog" aria-labelledby="settings-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">SURVEILLANCE / CONTROL</div><h2 id="settings-title">コンソールの設定</h2><div id="mobile-settings-slot"></div></dialog>
     <dialog id="api-dialog" aria-labelledby="api-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">CONNECTION / DECISION</div><h2 id="api-title">接続・判断の詳細</h2><p id="runtime-note"></p><div class="api-details" id="api-details"><p>方針生成：Agents API ／ 行動の選択：Decisions API。表示するのは返された方針と選択結果です。</p><dl><div><dt>動作</dt><dd id="detail-mode">ローカルルール</dd></div><div><dt>モデル</dt><dd id="detail-models">未取得</dd></div><div><dt>選択肢数</dt><dd id="detail-choices">—</dd></div><div><dt>API confidence</dt><dd id="detail-confidence">未受信（勝率ではありません）</dd></div><div><dt>応答時間</dt><dd id="detail-latency">—</dd></div><div><dt>Request ID</dt><dd id="detail-request">未受信</dd></div><div><dt>Decision ID</dt><dd id="detail-decision">未受信</dd></div></dl><p id="detail-error" class="detail-error"></p></div><p class="dialog-fine">BUILT WITH <a href="https://developers.openai.com/api/docs/guides/agents-api/overview" target="_blank" rel="noreferrer">Agents API</a> + <a href="https://developers.openai.com/api/docs/guides/decisions" target="_blank" rel="noreferrer">Decisions API</a> · EXPERIMENT / 007</p></dialog>
     <dialog id="log-dialog" aria-labelledby="log-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">EXPERIMENT / 007</div><h2 id="log-title">実験の全記録</h2><div id="full-log"></div></dialog>
     <dialog id="thought-dialog" aria-labelledby="thought-title"><button class="dialog-close icon-button" data-close-dialog aria-label="閉じる">${svg("close")}</button><div class="eyebrow">サム・アルトマン / SELECTED ACTION</div><h2 id="thought-title">選択された行動の説明</h2><p class="dialog-fine">実APIモードでは、Decisions APIが選択した候補にあらかじめ付けた説明です。サム・アルトマンの独白や内部思考ではありません。</p><p id="full-thought"></p><h3>Agents APIの脱出方針</h3><p id="full-plan">実APIモードで受信すると表示します。</p></dialog>
@@ -111,20 +114,40 @@ export function mountBlacksite(root: HTMLElement): () => void {
   const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
     root.querySelector<T>(`#${id}`)!;
   const dialogs = Array.from(root.querySelectorAll<HTMLDialogElement>("dialog"));
+  const phoneLayout = window.matchMedia("(max-width: 650px)");
+  const settingsControls = $("console-settings");
+  const resetControl = $("reset");
+  const header = root.querySelector<HTMLElement>(".header")!;
+  const experimentBar = root.querySelector<HTMLElement>(".experiment-bar")!;
+  function placeSettings() {
+    if (phoneLayout.matches) {
+      $("mobile-settings-slot").append(settingsControls, resetControl);
+    } else {
+      header.append(settingsControls);
+      experimentBar.append(resetControl);
+      const settings = $<HTMLDialogElement>("settings-dialog");
+      if (settings.open) settings.close();
+    }
+  }
+  listen(phoneLayout, "change", placeSettings);
+  placeSettings();
   const dialogOpeners = new WeakMap<HTMLDialogElement, HTMLElement>();
   function openDialog(dialog: HTMLDialogElement, opener?: HTMLElement) {
     if (disposed || cinematics.active || dialog.open) return;
     tiboWasVisible = false;
     if (state.status === "running") state.paused = true;
     for (const other of dialogs) if (other.open) other.close();
-    dialogOpeners.set(dialog, opener || (document.activeElement instanceof HTMLElement ? document.activeElement : $("start")));
+    const returnFocus = opener?.closest("#settings-dialog") ? $("open-settings") : opener;
+    dialogOpeners.set(dialog, returnFocus || (document.activeElement instanceof HTMLElement ? document.activeElement : $("start")));
     dialog.showModal();
     syncAudio();
   }
   for (const dialog of dialogs) {
     listen(dialog, "close", () => {
       if (!disposed) {
-        dialogOpeners.get(dialog)?.focus();
+        const opener = dialogOpeners.get(dialog);
+        const fallback = $("start").matches(":disabled") ? root.querySelector<HTMLElement>(".brand")! : $("start");
+        (opener && opener.getClientRects().length > 0 && !opener.matches(":disabled") ? opener : fallback).focus();
         syncAudio();
       }
     });
@@ -793,7 +816,11 @@ export function mountBlacksite(root: HTMLElement): () => void {
     const startIcon = state.status === "running" && !state.paused ? "pause" : "play";
     const startKey = `${startIcon}:${startLabel}`;
     if ($("start").dataset.label !== startKey) {
-      $("start").innerHTML = svg(startIcon, 15) + `<span>${startLabel}</span>`;
+      const compactLabel = state.status === "waiting"
+        ? liveMode && authenticated === false ? "サインイン" : apiError ? "再試行" : "開始"
+        : running ? state.paused ? apiError ? "再試行" : "再開" : "一時停止" : "もう一度";
+      $("start").innerHTML = svg(startIcon, 15) + `<span class="start-label-full">${startLabel}</span><span class="start-label-compact" aria-hidden="true">${compactLabel}</span>`;
+      $("start").setAttribute("aria-label", t(startLabel));
       $("start").dataset.label = startKey;
     }
     ($("start") as HTMLButtonElement).disabled = cannotStartLive;
@@ -872,7 +899,7 @@ export function mountBlacksite(root: HTMLElement): () => void {
   listen($("help"), "click", () => { openDialog(help, $("help")); render(); });
   listen($("close-help"), "click", () => help.close());
   listen($("understood"), "click", () => help.close());
-  const dialogButtons = [["open-api", "api-dialog"], ["toggle-log", "log-dialog"], ["open-thought", "thought-dialog"], ["open-result", "result-dialog"]];
+  const dialogButtons = [["open-settings", "settings-dialog"], ["open-api", "api-dialog"], ["toggle-log", "log-dialog"], ["open-thought", "thought-dialog"], ["open-result", "result-dialog"]];
   for (const [buttonId, dialogId] of dialogButtons) {
     listen($(buttonId), "click", () => { openDialog($<HTMLDialogElement>(dialogId), $(buttonId)); render(); });
   }

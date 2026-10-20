@@ -15,6 +15,10 @@ export function getLocale(): Locale {
 // allowing the same copy to work in text nodes, accessible names and composed logs.
 const english: Readonly<Record<string, string>> = {
   "BLACKSITE ホーム": "BLACKSITE home",
+  "コンソールの設定": "Console settings",
+  "開始": "Start",
+  "再試行": "Retry",
+  "再開": "Resume",
   "残り時間": "TIME LEFT",
   "追跡 ": "Follow ",
   "に": " · ",
@@ -307,6 +311,8 @@ const english: Readonly<Record<string, string>> = {
   "実験室": "Laboratory",
   "研究室": "Laboratory",
   "非常用電源室": "Generator room",
+  "電源室": "Generator",
+  "病棟": "Ward",
   "発電機": "Generator",
   "避難口": "Exit",
   "隠れ場所": "Hiding place",
